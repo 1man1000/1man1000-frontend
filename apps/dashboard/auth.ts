@@ -57,9 +57,13 @@ const result = NextAuth({
             token.requiresVerification =
               data.requiresVerification as boolean;
           } else {
+            console.error(
+              `[auth] social exchange failed: ${res.status} ${await res.text().catch(() => "")}`,
+            );
             token.backendError = true;
           }
-        } catch {
+        } catch (error) {
+          console.error("[auth] social exchange error:", error);
           token.backendError = true;
         }
       }

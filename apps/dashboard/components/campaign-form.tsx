@@ -21,6 +21,7 @@ import {
   ClientCombobox,
   type ClientOption,
 } from "@/components/client-combobox";
+import { toDateTimeInputValue } from "@/lib/campaign-utils";
 
 const industries = [
   "Technology",
@@ -43,6 +44,22 @@ export type ParentCampaignOption = {
   id: string;
   title?: string | null;
   brandName: string;
+  description?: string | null;
+  industry?: string;
+  targetAudience?: string;
+  clientId?: string | null;
+  adCreatives?: string[];
+  campaignAsset?: string | null;
+  paymentType?: "per_view" | "per_views";
+  paymentTiers?: {
+    lowerLimit: number;
+    upperLimit: number | null;
+    amount: number;
+  }[];
+  budget?: number;
+  targetViewRange?: { min: number; max: number };
+  startDate?: string | Date;
+  endDate?: string | Date;
 };
 
 export type CampaignFormProps = {
@@ -82,6 +99,33 @@ export function CampaignForm({
       paymentViewsThreshold: 1000,
       targetViewRange: { min: 1000, max: 10000 },
       parentCampaignId: parentCampaign?.id,
+      // Sub-campaigns inherit every field from the parent — the admin only
+      // adjusts budget, dates and targets. The window runs from now (or the
+      // parent's start, whichever is later) until the parent ends.
+      ...(parentCampaign && {
+        brandName: parentCampaign.brandName,
+        title: parentCampaign.title ?? undefined,
+        description: parentCampaign.description ?? undefined,
+        industry: parentCampaign.industry,
+        targetAudience: parentCampaign.targetAudience,
+        clientId: parentCampaign.clientId ?? undefined,
+        adCreatives: parentCampaign.adCreatives,
+        paymentType: parentCampaign.paymentType,
+        paymentTiers: parentCampaign.paymentTiers,
+        budget: parentCampaign.budget,
+        targetViewRange: parentCampaign.targetViewRange,
+        startDate: toDateTimeInputValue(
+          new Date(
+            Math.max(
+              Date.now(),
+              parentCampaign.startDate
+                ? new Date(parentCampaign.startDate).getTime()
+                : Date.now(),
+            ),
+          ),
+        ),
+        endDate: toDateTimeInputValue(parentCampaign.endDate),
+      }),
       ...defaultValues,
     }),
     [defaultValues, parentCampaign],
@@ -104,6 +148,11 @@ export function CampaignForm({
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  // Sub-campaigns inherit the parent's asset; an explicit existing asset
+  // (edit page) still wins, and a newly picked file replaces both.
+  const assetUrl =
+    existingAssetUrl || parentCampaign?.campaignAsset || undefined;
 
   const budget = watch("budget");
   const targetMax = watch("targetViewRange.max");
@@ -177,6 +226,7 @@ export function CampaignForm({
         </Card>
       )}
 
+      {!parentCampaign && (
       <Card>
         <CardHeader>
           <CardTitle>Basic Information</CardTitle>
@@ -287,6 +337,7 @@ export function CampaignForm({
           </div>
         </CardContent>
       </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -417,7 +468,7 @@ export function CampaignForm({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {!selectedFile && !existingAssetUrl ? (
+          {!selectedFile && !assetUrl ? (
             <div
               className="border-2 border-dashed border-border/60 rounded-xl p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
               onClick={() => document.getElementById("campaignAsset")?.click()}
@@ -483,14 +534,14 @@ export function CampaignForm({
                 </Button>
               </div>
             </div>
-          ) : existingAssetUrl ? (
+          ) : assetUrl ? (
             <div className="space-y-3">
               <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
-                {existingAssetUrl.match(/\.(mp4|webm|mov)$/i) ? (
-                  <VideoPlayerComponent src={existingAssetUrl} />
+                {assetUrl.match(/\.(mp4|webm|mov)$/i) ? (
+                  <VideoPlayerComponent src={assetUrl} />
                 ) : (
                   <img
-                    src={existingAssetUrl}
+                    src={assetUrl}
                     alt="Current campaign asset"
                     className="w-full h-full object-cover"
                   />
@@ -499,7 +550,11 @@ export function CampaignForm({
               <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                 <div className="flex items-center gap-2">
                   <FileImage className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Current asset</span>
+                  <span className="text-sm font-medium">
+                    {existingAssetUrl
+                      ? "Current asset"
+                      : "Inherited from parent campaign"}
+                  </span>
                 </div>
                 <Button
                   type="button"
