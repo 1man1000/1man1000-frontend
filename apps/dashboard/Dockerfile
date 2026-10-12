@@ -42,6 +42,10 @@ COPY --from=builder /app/out/full/ .
 # ARG TURBO_TOKEN
 # ENV TURBO_TOKEN=$TURBO_TOKEN
 
+# Render injects service env vars as build args — declaring this makes the
+# service's NEXT_PUBLIC_API_URL (e.g. staging backend) visible to next build.
+# Unset builds fall back to apps/dashboard/.env.production.
+ARG NEXT_PUBLIC_API_URL
 RUN pnpm turbo build --filter=dashboard...
 
 FROM base AS runner

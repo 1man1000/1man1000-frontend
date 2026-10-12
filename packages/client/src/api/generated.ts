@@ -3008,7 +3008,7 @@ export const usersControllerGetAdminStats = (
 
 export const getUsersControllerGetAdminStatsQueryKey = () => {
     return [
-    `/api/users/stats`
+    `/`api/users/stats
     ] as const;
     }
 
