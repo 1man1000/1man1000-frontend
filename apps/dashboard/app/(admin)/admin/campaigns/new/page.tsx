@@ -87,6 +87,25 @@ function CreateCampaignContent() {
           id: parentCampaign.id,
           title: parentCampaign.title,
           brandName: parentCampaign.brandName,
+          description: parentCampaign.description,
+          industry: parentCampaign.industry,
+          targetAudience: parentCampaign.targetAudience,
+          clientId: parentCampaign.client?.id,
+          adCreatives: parentCampaign.adCreatives,
+          campaignAsset: parentCampaign.campaignAsset,
+          paymentType: parentCampaign.paymentType as
+            | "per_view"
+            | "per_views"
+            | undefined,
+          paymentTiers: parentCampaign.paymentTiers?.map((tier) => ({
+            lowerLimit: tier.lowerLimit,
+            upperLimit: tier.upperLimit ?? null,
+            amount: tier.amount,
+          })),
+          budget: parentCampaign.budget,
+          targetViewRange: parentCampaign.targetViewRange,
+          startDate: parentCampaign.startDate,
+          endDate: parentCampaign.endDate,
         }
       : null;
 
