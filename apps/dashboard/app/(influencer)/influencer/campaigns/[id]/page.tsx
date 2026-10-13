@@ -120,6 +120,7 @@ export default function CampaignDetailPage() {
             campaignId={campaignId}
             campaignTitle={campaign.title || campaign.brandName}
             size="lg"
+            disabled={isExpired}
           />
           {isExpired ? (
             <Button size="lg" disabled variant="secondary">
