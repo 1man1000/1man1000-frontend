@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { CampaignAssetModal } from "@/components/campaign-asset-modal";
+import { ShareCampaignButton } from "@/components/share-campaign-button";
 import { useCampaignsControllerGetInfluencerCampaigns } from "@workspace/client";
 import {
   Card,
@@ -385,6 +386,15 @@ export default function InfluencerCampaignsPage() {
                           Details
                         </Link>
                       </Button>
+                      <ShareCampaignButton
+                        campaignId={campaign.id}
+                        campaignTitle={
+                          ((campaign.title as any) || campaign.brandName) as string
+                        }
+                        size="sm"
+                        className="flex-1"
+                        disabled={isCampaignExpired(campaign.endDate)}
+                      />
                       {!isCampaignExpired(campaign.endDate) ? (
                         <Button size="sm" className="flex-1" asChild>
                           <Link

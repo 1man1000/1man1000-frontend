@@ -31,6 +31,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
 import Link from "next/link";
 import { ShareCampaignButton } from "@/components/share-campaign-button";
+import { isCampaignExpired } from "@/lib/campaign-utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -140,6 +141,7 @@ export default function AvailableCampaignDetailPage() {
             campaignId={campaignId}
             campaignTitle={campaign.title || campaign.brandName}
             size="lg"
+            disabled={isCampaignExpired(campaign.endDate)}
           />
           <AlertDialog>
             <AlertDialogTrigger asChild>
