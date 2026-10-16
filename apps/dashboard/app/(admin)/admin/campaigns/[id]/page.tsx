@@ -234,6 +234,7 @@ export default function CampaignDetailPage() {
   }
 
   const c = campaign;
+  const hasSubCampaigns = !!c.subCampaigns?.length;
 
   return (
     <div className="space-y-6">
@@ -480,9 +481,15 @@ export default function CampaignDetailPage() {
             <div className="flex items-center gap-2">
               <Eye className="h-5 w-5 text-cyan-600" />
               <span className="text-2xl font-bold">
-                {(c.totalViews || 0).toLocaleString()}
+                {(c.hierarchyStats?.totalViews ?? c.totalViews ?? 0).toLocaleString()}
               </span>
             </div>
+            {hasSubCampaigns && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Includes {c.subCampaigns!.length} sub-campaign
+                {c.subCampaigns!.length > 1 ? "s" : ""}
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -496,9 +503,15 @@ export default function CampaignDetailPage() {
             <div className="flex items-center gap-2">
               <FileCheck className="h-5 w-5 text-emerald-600" />
               <span className="text-2xl font-bold">
-                {c._count?.submissions || 0}
+                {c.hierarchyStats?.submissions ?? c._count?.submissions ?? 0}
               </span>
             </div>
+            {hasSubCampaigns && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Includes {c.subCampaigns!.length} sub-campaign
+                {c.subCampaigns!.length > 1 ? "s" : ""}
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -554,7 +567,10 @@ export default function CampaignDetailPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div className="flex items-center gap-4">
-            <CardTitle>Submissions ({c._count?.submissions || 0})</CardTitle>
+            <CardTitle>
+              Submissions (
+              {c.hierarchyStats?.submissions ?? c._count?.submissions ?? 0})
+            </CardTitle>
             <div className="flex items-center gap-2">
               <select
                 value={sortBy}
@@ -649,6 +665,11 @@ export default function CampaignDetailPage() {
                     <th className="text-left py-3 px-2 font-medium text-muted-foreground">
                       Influencer
                     </th>
+                    {hasSubCampaigns && (
+                      <th className="text-left py-3 px-2 font-medium text-muted-foreground">
+                        Campaign
+                      </th>
+                    )}
                     <th className="text-left py-3 px-2 font-medium text-muted-foreground">
                       Submissions
                     </th>
@@ -706,6 +727,18 @@ export default function CampaignDetailPage() {
                           </div>
                         </div>
                       </td>
+                      {hasSubCampaigns && (
+                        <td className="py-3 px-2">
+                          <Link
+                            href={`/admin/campaigns/${submission.campaignId}`}
+                            className="text-sm hover:underline"
+                          >
+                            {submission.campaign?.title ||
+                              submission.campaign?.brandName ||
+                              "-"}
+                          </Link>
+                        </td>
+                      )}
                       <td className="py-3 px-2">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium">

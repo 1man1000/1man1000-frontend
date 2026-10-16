@@ -13,6 +13,7 @@ import {
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card";
@@ -33,6 +34,7 @@ import {
   ChevronRight,
   Loader2,
   ImageIcon,
+  GitBranch,
 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -119,6 +121,7 @@ export default function CampaignDetailPage() {
   }
 
   const c = campaign;
+  const hasSubCampaigns = !!c.subCampaigns?.length;
 
   return (
     <div className="space-y-6">
@@ -176,6 +179,23 @@ export default function CampaignDetailPage() {
           </AlertDialog>
         </div>
       </div>
+
+      {c.parentCampaign && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="flex items-center gap-3 p-4">
+            <GitBranch className="h-5 w-5 text-primary shrink-0" />
+            <div className="text-sm">
+              <span className="text-muted-foreground">Sub-campaign of </span>
+              <Link
+                href={`/client/campaigns/${c.parentCampaign.id}`}
+                className="font-medium text-primary hover:underline"
+              >
+                {c.parentCampaign.title || c.parentCampaign.brandName}
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card>
@@ -254,9 +274,15 @@ export default function CampaignDetailPage() {
             <div className="flex items-center gap-2">
               <Eye className="h-5 w-5 text-cyan-600" />
               <span className="text-2xl font-bold">
-                {(c.totalViews || 0).toLocaleString()}
+                {(c.hierarchyStats?.totalViews ?? c.totalViews ?? 0).toLocaleString()}
               </span>
             </div>
+            {hasSubCampaigns && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Includes {c.subCampaigns!.length} sub-campaign
+                {c.subCampaigns!.length > 1 ? "s" : ""}
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -270,18 +296,64 @@ export default function CampaignDetailPage() {
             <div className="flex items-center gap-2">
               <FileCheck className="h-5 w-5 text-emerald-600" />
               <span className="text-2xl font-bold">
-                {c._count?.submissions || 0}
+                {c.hierarchyStats?.submissions ?? c._count?.submissions ?? 0}
               </span>
             </div>
+            {hasSubCampaigns && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Includes {c.subCampaigns!.length} sub-campaign
+                {c.subCampaigns!.length > 1 ? "s" : ""}
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Sub-campaigns */}
+      {hasSubCampaigns && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Sub-Campaigns ({c.subCampaigns!.length})</CardTitle>
+            <CardDescription>
+              Smaller campaigns feeding into this campaign
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y divide-border/60">
+              {c.subCampaigns!.map((sub) => (
+                <Link
+                  key={sub.id}
+                  href={`/client/campaigns/${sub.id}`}
+                  className="flex items-center justify-between py-3 hover:bg-muted/50 -mx-2 px-2 rounded-lg transition-colors"
+                >
+                  <div>
+                    <p className="font-medium">{sub.title || sub.brandName}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {sub.brandName} · Ends{" "}
+                      {new Date(sub.endDate).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-muted-foreground">
+                      {(sub.totalViews || 0).toLocaleString()} views
+                    </span>
+                    <StatusBadge status={sub.status} />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Submissions Table */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div className="flex items-center gap-4">
-            <CardTitle>Submissions ({c._count?.submissions || 0})</CardTitle>
+            <CardTitle>
+              Submissions (
+              {c.hierarchyStats?.submissions ?? c._count?.submissions ?? 0})
+            </CardTitle>
             <div className="flex items-center gap-2">
               <select
                 value={sortBy}
@@ -379,6 +451,11 @@ export default function CampaignDetailPage() {
                     <th className="text-left py-3 px-2 font-medium text-muted-foreground">
                       Influencer ID
                     </th>
+                    {hasSubCampaigns && (
+                      <th className="text-left py-3 px-2 font-medium text-muted-foreground">
+                        Campaign
+                      </th>
+                    )}
                     <th className="text-left py-3 px-2 font-medium text-muted-foreground">
                       Views
                     </th>
@@ -432,6 +509,18 @@ export default function CampaignDetailPage() {
                             "Unknown"}
                         </span>
                       </td>
+                      {hasSubCampaigns && (
+                        <td className="py-3 px-2">
+                          <Link
+                            href={`/client/campaigns/${submission.campaignId}`}
+                            className="text-sm hover:underline"
+                          >
+                            {submission.campaign?.title ||
+                              submission.campaign?.brandName ||
+                              "-"}
+                          </Link>
+                        </td>
+                      )}
                       <td className="py-3 px-2">
                         {submission.verifiedViewCount?.toLocaleString() || 0}
                       </td>
