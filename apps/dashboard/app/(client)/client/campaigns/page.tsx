@@ -19,7 +19,7 @@ import {
   TabsTrigger,
 } from "@workspace/ui/components/tabs";
 import { Progress } from "@workspace/ui/components/progress";
-import { Search, Plus, Eye, Users, Edit } from "lucide-react";
+import { Search, Plus, Eye, Users, Edit, GitBranch } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
@@ -184,8 +184,17 @@ export default function ClientCampaignsPage() {
                 <Card key={campaign.id} className="overflow-hidden">
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg">
+                      <CardTitle className="text-lg flex items-center gap-2">
                         {(campaign.title as any) || campaign.brandName}
+                        {campaign.parentCampaignId && (
+                          <span
+                            className="inline-flex items-center gap-1 text-xs font-normal text-primary"
+                            title="Sub-campaign"
+                          >
+                            <GitBranch className="h-3 w-3" />
+                            Sub-campaign
+                          </span>
+                        )}
                       </CardTitle>
                       <StatusBadge status={campaign.status} />
                     </div>

@@ -898,6 +898,12 @@ export interface CampaignSummaryDetailDto {
   endDate: string;
 }
 
+export interface CampaignHierarchyStatsDto {
+  totalViews: number;
+  submissions: number;
+  assignments: number;
+}
+
 export type CampaignDetailResponseDtoStatus = typeof CampaignDetailResponseDtoStatus[keyof typeof CampaignDetailResponseDtoStatus];
 
 
@@ -950,6 +956,7 @@ export interface CampaignDetailResponseDto {
   /** @nullable */
   parentCampaign?: CampaignDetailResponseDtoParentCampaign;
   subCampaigns?: CampaignSummaryDetailDto[];
+  hierarchyStats?: CampaignHierarchyStatsDto;
   createdAt: string;
   updatedAt: string;
 }

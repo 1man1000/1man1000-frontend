@@ -38,6 +38,7 @@ import {
   Pause,
   Play,
   OctagonX,
+  GitBranch,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -242,8 +243,17 @@ export default function AdminCampaignsPage() {
             const campaign = row.original;
             return (
               <div className="flex flex-col">
-                <span className="font-medium">
+                <span className="font-medium flex items-center gap-1.5">
                   {(campaign.title || "—") as string}
+                  {campaign.parentCampaignId && (
+                    <span
+                      className="inline-flex items-center gap-1 text-xs font-normal text-primary"
+                      title="Sub-campaign"
+                    >
+                      <GitBranch className="h-3 w-3" />
+                      Sub
+                    </span>
+                  )}
                 </span>
                 <span className="text-sm text-muted-foreground">
                   {campaign.brandName}
