@@ -1919,6 +1919,10 @@ export const SubmissionsControllerGetCampaignSubmissionsSortOrder = {
   desc: 'desc',
 } as const;
 
+export type PaymentsControllerGetAdminStatsParams = {
+campaignId?: string;
+};
+
 export type PaymentsControllerFindAllParams = {
 influencerId?: string;
 campaignId?: string;
@@ -6508,13 +6512,14 @@ export function useSubmissionsControllerGetApprovalHistory<TData = Awaited<Retur
  * @summary Get payments stats (Admin only)
  */
 export const paymentsControllerGetAdminStats = (
-    
+    params?: PaymentsControllerGetAdminStatsParams,
  signal?: AbortSignal
 ) => {
       
       
       return axiosInstance<PaymentsStatsResponseDto>(
-      {url: `/api/payments/stats`, method: 'GET', signal
+      {url: `/api/payments/stats`, method: 'GET',
+        params, signal
     },
       );
     }
@@ -6522,23 +6527,23 @@ export const paymentsControllerGetAdminStats = (
 
 
 
-export const getPaymentsControllerGetAdminStatsQueryKey = () => {
+export const getPaymentsControllerGetAdminStatsQueryKey = (params?: PaymentsControllerGetAdminStatsParams,) => {
     return [
-    `/api/payments/stats`
+    `/api/payments/stats`, ...(params ? [params]: [])
     ] as const;
     }
 
     
-export const getPaymentsControllerGetAdminStatsQueryOptions = <TData = Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError, TData>>, }
+export const getPaymentsControllerGetAdminStatsQueryOptions = <TData = Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError = unknown>(params?: PaymentsControllerGetAdminStatsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError, TData>>, }
 ) => {
 
 const {query: queryOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getPaymentsControllerGetAdminStatsQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getPaymentsControllerGetAdminStatsQueryKey(params);
 
   
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>> = ({ signal }) => paymentsControllerGetAdminStats(signal);
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>> = ({ signal }) => paymentsControllerGetAdminStats(params, signal);
 
       
 
@@ -6552,7 +6557,7 @@ export type PaymentsControllerGetAdminStatsQueryError = unknown
 
 
 export function usePaymentsControllerGetAdminStats<TData = Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError = unknown>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError, TData>> & Pick<
+ params: undefined |  PaymentsControllerGetAdminStatsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>,
           TError,
@@ -6562,7 +6567,7 @@ export function usePaymentsControllerGetAdminStats<TData = Awaited<ReturnType<ty
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function usePaymentsControllerGetAdminStats<TData = Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError, TData>> & Pick<
+ params?: PaymentsControllerGetAdminStatsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>,
           TError,
@@ -6572,7 +6577,7 @@ export function usePaymentsControllerGetAdminStats<TData = Awaited<ReturnType<ty
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function usePaymentsControllerGetAdminStats<TData = Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError, TData>>, }
+ params?: PaymentsControllerGetAdminStatsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError, TData>>, }
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
@@ -6580,11 +6585,11 @@ export function usePaymentsControllerGetAdminStats<TData = Awaited<ReturnType<ty
  */
 
 export function usePaymentsControllerGetAdminStats<TData = Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError, TData>>, }
+ params?: PaymentsControllerGetAdminStatsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError, TData>>, }
  , queryClient?: QueryClient 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getPaymentsControllerGetAdminStatsQueryOptions(options)
+  const queryOptions = getPaymentsControllerGetAdminStatsQueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

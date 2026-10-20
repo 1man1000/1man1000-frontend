@@ -210,11 +210,14 @@ export default function AdminPaymentsPage() {
     isLoading: isLoadingStats,
     isError: isErrorStats,
     refetch: refetchStats,
-  } = usePaymentsControllerGetAdminStats({
-    query: {
-      staleTime: 10_000,
+  } = usePaymentsControllerGetAdminStats(
+    { campaignId: campaignId || undefined },
+    {
+      query: {
+        staleTime: 10_000,
+      },
     },
-  });
+  );
 
   const { mutateAsync: updatePaymentStatus, isPending: isUpdatingStatus } =
     usePaymentsControllerUpdateStatus();
@@ -278,6 +281,13 @@ export default function AdminPaymentsPage() {
   const pendingPayouts = stats?.pendingPayouts ?? 0;
   const pendingCount = stats?.pendingCount ?? 0;
   const paidThisMonth = stats?.paidThisMonth ?? 0;
+  const filteredCampaign = campaignId
+    ? campaigns.find((campaign) => campaign.id === campaignId)
+    : undefined;
+  const filteredCampaignName = filteredCampaign
+    ? ((filteredCampaign.title as unknown as string) ||
+      filteredCampaign.brandName)
+    : undefined;
   const now = new Date();
 
   const selectedInfluencerName =
@@ -307,7 +317,9 @@ export default function AdminPaymentsPage() {
             <div className="text-2xl font-bold">
               GH₵{totalPaid.toLocaleString()}
             </div>
-            <p className="text-xs text-muted-foreground">All time</p>
+            <p className="text-xs text-muted-foreground">
+              {filteredCampaignName ?? "All time"}
+            </p>
           </CardContent>
         </Card>
 
