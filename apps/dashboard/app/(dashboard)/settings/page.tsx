@@ -38,6 +38,7 @@ import {
 } from "@workspace/ui/components/select";
 import { Checkbox } from "@workspace/ui/components/checkbox";
 import { CountryDropdown } from "@workspace/ui/components/country-dropdown";
+import { ContentPreferencesSelect } from "@/components/content-preferences-select";
 
 type InfluencerFormState = {
   country: string;
@@ -57,6 +58,7 @@ type InfluencerFormState = {
     | "age_45_54"
     | "age_55_plus"
     | "";
+  contentPreferences: string[];
 };
 
 const allSchoolOptions = [
@@ -118,6 +120,7 @@ export default function SettingsPage() {
       schoolName: "",
       gender: "",
       ageBracket: "",
+      contentPreferences: [],
     });
 
   const {
@@ -160,6 +163,7 @@ export default function SettingsPage() {
       schoolName: profile.schoolName || "",
       gender: profile.gender || "",
       ageBracket: profile.ageBracket || "",
+      contentPreferences: profile.contentPreferences || [],
     });
   }, [typedProfile, user?.role]);
 
@@ -271,6 +275,10 @@ export default function SettingsPage() {
       setInfluencerFormError("Age bracket is required");
       return false;
     }
+    if (influencerFormData.contentPreferences.length === 0) {
+      setInfluencerFormError("Please select at least one content preference");
+      return false;
+    }
 
     setInfluencerFormError("");
     return true;
@@ -304,6 +312,8 @@ export default function SettingsPage() {
         : undefined,
       gender: influencerFormData.gender as UpdateUserDto["gender"],
       ageBracket: influencerFormData.ageBracket as UpdateUserDto["ageBracket"],
+      contentPreferences:
+        influencerFormData.contentPreferences as UpdateUserDto["contentPreferences"],
     };
 
     updateMutation.mutate({
@@ -677,6 +687,16 @@ export default function SettingsPage() {
                           </Select>
                         </div>
                       </div>
+
+                      <ContentPreferencesSelect
+                        value={influencerFormData.contentPreferences}
+                        onChange={(contentPreferences) =>
+                          setInfluencerFormData((p) => ({
+                            ...p,
+                            contentPreferences,
+                          }))
+                        }
+                      />
                     </div>
 
                     <Button

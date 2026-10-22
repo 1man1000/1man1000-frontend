@@ -7,6 +7,7 @@ import {
   usePaymentsControllerUpdate,
   usePaymentsControllerUpdateStatus,
   usePaymentsControllerGetAdminStats,
+  usePaymentsControllerMarkAllPaid,
   useCampaignsControllerFindAll,
   paymentsControllerExportPaymentsToCsv,
   type PaymentResponseDto,
@@ -57,6 +58,7 @@ import {
   ArrowUpDown,
   Download,
   Pencil,
+  CheckCheck,
 } from "lucide-react";
 import { ErrorState } from "@/components/ui/error-state";
 import { ListPaginationWrapper } from "@/components/ui/list-pagination-wrapper";
@@ -166,6 +168,7 @@ export default function AdminPaymentsPage() {
   const [campaignId, setCampaignId] = useState("");
   const [isExporting, setIsExporting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editAmount, setEditAmount] = useState("");
   const [editError, setEditError] = useState("");
@@ -210,17 +213,23 @@ export default function AdminPaymentsPage() {
     isLoading: isLoadingStats,
     isError: isErrorStats,
     refetch: refetchStats,
-  } = usePaymentsControllerGetAdminStats({
-    query: {
-      staleTime: 10_000,
+  } = usePaymentsControllerGetAdminStats(
+    { campaignId: campaignId || undefined },
+    {
+      query: {
+        staleTime: 10_000,
+      },
     },
-  });
+  );
 
   const { mutateAsync: updatePaymentStatus, isPending: isUpdatingStatus } =
     usePaymentsControllerUpdateStatus();
 
   const { mutateAsync: updatePayment, isPending: isUpdatingPayment } =
     usePaymentsControllerUpdate();
+
+  const { mutateAsync: markAllPaid, isPending: isMarkingAllPaid } =
+    usePaymentsControllerMarkAllPaid();
 
   const handleMarkPaid = (payment: Payment) => {
     setSelectedPayment(payment);
@@ -278,6 +287,13 @@ export default function AdminPaymentsPage() {
   const pendingPayouts = stats?.pendingPayouts ?? 0;
   const pendingCount = stats?.pendingCount ?? 0;
   const paidThisMonth = stats?.paidThisMonth ?? 0;
+  const filteredCampaign = campaignId
+    ? campaigns.find((campaign) => campaign.id === campaignId)
+    : undefined;
+  const filteredCampaignName = filteredCampaign
+    ? ((filteredCampaign.title as unknown as string) ||
+      filteredCampaign.brandName)
+    : undefined;
   const now = new Date();
 
   const selectedInfluencerName =
@@ -307,7 +323,9 @@ export default function AdminPaymentsPage() {
             <div className="text-2xl font-bold">
               GH₵{totalPaid.toLocaleString()}
             </div>
-            <p className="text-xs text-muted-foreground">All time</p>
+            <p className="text-xs text-muted-foreground">
+              {filteredCampaignName ?? "All time"}
+            </p>
           </CardContent>
         </Card>
 
@@ -419,6 +437,14 @@ export default function AdminPaymentsPage() {
             <Download className="h-4 w-4 mr-2" />
             {isExporting ? "Exporting..." : "Export CSV"}
           </Button>
+          <Button
+            size="sm"
+            onClick={() => setBulkConfirmOpen(true)}
+            disabled={pendingCount === 0}
+          >
+            <CheckCheck className="h-4 w-4 mr-2" />
+            Pay All
+          </Button>
         </div>
       </div>
 
@@ -503,6 +529,45 @@ export default function AdminPaymentsPage() {
               }}
             >
               Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={bulkConfirmOpen} onOpenChange={setBulkConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Mark all {pendingCount} pending payments as paid?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will mark {pendingCount} pending{" "}
+              {pendingCount === 1 ? "payment" : "payments"} totalling GH₵
+              {pendingPayouts.toFixed(2)} as paid
+              {filteredCampaignName ? ` for ${filteredCampaignName}` : ""}.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isMarkingAllPaid}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isMarkingAllPaid || pendingCount === 0}
+              onClick={async () => {
+                try {
+                  await markAllPaid({
+                    data: { campaignId: campaignId || undefined },
+                  });
+                  await refetch();
+                  await refetchStats();
+                  setBulkConfirmOpen(false);
+                } catch (error) {
+                  console.error("Bulk mark paid failed:", error);
+                }
+              }}
+            >
+              {isMarkingAllPaid ? "Processing..." : "Confirm"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

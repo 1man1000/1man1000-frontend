@@ -41,6 +41,8 @@ import { submissionSchema, type SubmissionFormData } from "@/lib/schemas";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { extractViewCount } from "@/lib/services/ocrService";
+import { CampaignJourneyStepper } from "@/components/campaign-journey-stepper";
+import { useAuthStore } from "@/lib/auth-store";
 import { isCampaignExpired } from "@/lib/campaign-utils";
 import {
   validateImage,
@@ -59,6 +61,12 @@ type Campaign = {
   paymentTiers?: { lowerLimit: number; upperLimit?: number; amount: number }[];
   endDate: string;
   status?: string;
+  submissions?: {
+    influencerId?: string;
+    influencer?: { id?: string };
+    approvalStatus?: string;
+    submissionDate?: string;
+  }[];
 };
 
 export default function SubmitCampaignPage() {
@@ -66,6 +74,7 @@ export default function SubmitCampaignPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const campaignId = params.id as string;
+  const { user } = useAuthStore();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [platform, setPlatform] = useState<Platform>("instagram");
@@ -212,6 +221,16 @@ export default function SubmitCampaignPage() {
   const isPaused = c.status === "paused";
   const isUnavailable = c.status !== "approved" && c.status !== "active";
 
+  const mySubmission = c.submissions
+    ?.filter(
+      (s) => s.influencerId === user?.id || s.influencer?.id === user?.id,
+    )
+    .sort(
+      (a, b) =>
+        new Date(b.submissionDate || 0).getTime() -
+        new Date(a.submissionDate || 0).getTime(),
+    )[0];
+
   if (isExpired || isPaused || isUnavailable) {
     const heading = isExpired
       ? "Campaign Expired"
@@ -273,6 +292,20 @@ export default function SubmitCampaignPage() {
           <p className="text-muted-foreground">{c.title || c.brandName}</p>
         </div>
       </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Your Journey</CardTitle>
+          <CardDescription>
+            What happens before and after you submit
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CampaignJourneyStepper
+            submissionStatus={mySubmission?.approvalStatus}
+          />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

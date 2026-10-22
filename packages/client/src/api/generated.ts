@@ -146,6 +146,20 @@ export const ProfileResponseDtoAgeBracket = {
   age_55_plus: 'age_55_plus',
 } as const;
 
+export type ProfileResponseDtoContentPreferencesItem = typeof ProfileResponseDtoContentPreferencesItem[keyof typeof ProfileResponseDtoContentPreferencesItem];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const ProfileResponseDtoContentPreferencesItem = {
+  sports_gaming: 'sports_gaming',
+  music_entertainment: 'music_entertainment',
+  food_lifestyle: 'food_lifestyle',
+  technology_digital: 'technology_digital',
+  education: 'education',
+  travel_tourism: 'travel_tourism',
+  social_community: 'social_community',
+} as const;
+
 export interface ProfileResponseDto {
   id: string;
   email: string;
@@ -171,6 +185,7 @@ export interface ProfileResponseDto {
   schoolName?: string;
   gender?: ProfileResponseDtoGender;
   ageBracket?: ProfileResponseDtoAgeBracket;
+  contentPreferences?: ProfileResponseDtoContentPreferencesItem[];
   createdAt: string;
 }
 
@@ -383,6 +398,20 @@ export const UpdateUserDtoAgeBracket = {
   age_55_plus: 'age_55_plus',
 } as const;
 
+export type UpdateUserDtoContentPreferencesItem = typeof UpdateUserDtoContentPreferencesItem[keyof typeof UpdateUserDtoContentPreferencesItem];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const UpdateUserDtoContentPreferencesItem = {
+  sports_gaming: 'sports_gaming',
+  music_entertainment: 'music_entertainment',
+  food_lifestyle: 'food_lifestyle',
+  technology_digital: 'technology_digital',
+  education: 'education',
+  travel_tourism: 'travel_tourism',
+  social_community: 'social_community',
+} as const;
+
 export interface UpdateUserDto {
   name?: string;
   company?: string;
@@ -398,6 +427,8 @@ export interface UpdateUserDto {
   schoolName?: string;
   gender?: UpdateUserDtoGender;
   ageBracket?: UpdateUserDtoAgeBracket;
+  /** Content types the influencer is willing to participate in */
+  contentPreferences?: UpdateUserDtoContentPreferencesItem[];
 }
 
 export type UpdateUserStatusDtoStatus = typeof UpdateUserStatusDtoStatus[keyof typeof UpdateUserStatusDtoStatus];
@@ -1232,6 +1263,18 @@ export interface PaymentsListResponseDto {
   meta: PaginationMetaDto;
 }
 
+export interface MarkAllPaidDto {
+  /** Scope the bulk payout to a campaign (includes its sub-campaigns). Omit to pay all pending payments. */
+  campaignId?: string;
+}
+
+export interface MarkAllPaidResponseDto {
+  /** Number of payments marked as paid */
+  updated: number;
+  /** Total amount paid out */
+  totalAmount: number;
+}
+
 export interface InfluencerEarningsResponseDto {
   totalEarnings: number;
   paidEarnings: number;
@@ -1918,6 +1961,10 @@ export const SubmissionsControllerGetCampaignSubmissionsSortOrder = {
   asc: 'asc',
   desc: 'desc',
 } as const;
+
+export type PaymentsControllerGetAdminStatsParams = {
+campaignId?: string;
+};
 
 export type PaymentsControllerFindAllParams = {
 influencerId?: string;
@@ -6508,13 +6555,14 @@ export function useSubmissionsControllerGetApprovalHistory<TData = Awaited<Retur
  * @summary Get payments stats (Admin only)
  */
 export const paymentsControllerGetAdminStats = (
-    
+    params?: PaymentsControllerGetAdminStatsParams,
  signal?: AbortSignal
 ) => {
       
       
       return axiosInstance<PaymentsStatsResponseDto>(
-      {url: `/api/payments/stats`, method: 'GET', signal
+      {url: `/api/payments/stats`, method: 'GET',
+        params, signal
     },
       );
     }
@@ -6522,23 +6570,23 @@ export const paymentsControllerGetAdminStats = (
 
 
 
-export const getPaymentsControllerGetAdminStatsQueryKey = () => {
+export const getPaymentsControllerGetAdminStatsQueryKey = (params?: PaymentsControllerGetAdminStatsParams,) => {
     return [
-    `/api/payments/stats`
+    `/api/payments/stats`, ...(params ? [params]: [])
     ] as const;
     }
 
     
-export const getPaymentsControllerGetAdminStatsQueryOptions = <TData = Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError, TData>>, }
+export const getPaymentsControllerGetAdminStatsQueryOptions = <TData = Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError = unknown>(params?: PaymentsControllerGetAdminStatsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError, TData>>, }
 ) => {
 
 const {query: queryOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getPaymentsControllerGetAdminStatsQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getPaymentsControllerGetAdminStatsQueryKey(params);
 
   
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>> = ({ signal }) => paymentsControllerGetAdminStats(signal);
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>> = ({ signal }) => paymentsControllerGetAdminStats(params, signal);
 
       
 
@@ -6552,7 +6600,7 @@ export type PaymentsControllerGetAdminStatsQueryError = unknown
 
 
 export function usePaymentsControllerGetAdminStats<TData = Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError = unknown>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError, TData>> & Pick<
+ params: undefined |  PaymentsControllerGetAdminStatsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>,
           TError,
@@ -6562,7 +6610,7 @@ export function usePaymentsControllerGetAdminStats<TData = Awaited<ReturnType<ty
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function usePaymentsControllerGetAdminStats<TData = Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError, TData>> & Pick<
+ params?: PaymentsControllerGetAdminStatsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>,
           TError,
@@ -6572,7 +6620,7 @@ export function usePaymentsControllerGetAdminStats<TData = Awaited<ReturnType<ty
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function usePaymentsControllerGetAdminStats<TData = Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError, TData>>, }
+ params?: PaymentsControllerGetAdminStatsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError, TData>>, }
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
@@ -6580,11 +6628,11 @@ export function usePaymentsControllerGetAdminStats<TData = Awaited<ReturnType<ty
  */
 
 export function usePaymentsControllerGetAdminStats<TData = Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError, TData>>, }
+ params?: PaymentsControllerGetAdminStatsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof paymentsControllerGetAdminStats>>, TError, TData>>, }
  , queryClient?: QueryClient 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getPaymentsControllerGetAdminStatsQueryOptions(options)
+  const queryOptions = getPaymentsControllerGetAdminStatsQueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
@@ -6851,6 +6899,71 @@ export function usePaymentsControllerExportPaymentsToCsv<TData = Awaited<ReturnT
 
 
 
+/**
+ * @summary Mark all pending payments as paid, optionally scoped to a campaign (Admin only)
+ */
+export const paymentsControllerMarkAllPaid = (
+    markAllPaidDto: MarkAllPaidDto,
+ signal?: AbortSignal
+) => {
+      
+      
+      return axiosInstance<MarkAllPaidResponseDto>(
+      {url: `/api/payments/mark-all-paid`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: markAllPaidDto, signal
+    },
+      );
+    }
+  
+
+
+export const getPaymentsControllerMarkAllPaidMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof paymentsControllerMarkAllPaid>>, TError,{data: MarkAllPaidDto}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof paymentsControllerMarkAllPaid>>, TError,{data: MarkAllPaidDto}, TContext> => {
+
+const mutationKey = ['paymentsControllerMarkAllPaid'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof paymentsControllerMarkAllPaid>>, {data: MarkAllPaidDto}> = (props) => {
+          const {data} = props ?? {};
+
+          return  paymentsControllerMarkAllPaid(data,)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PaymentsControllerMarkAllPaidMutationResult = NonNullable<Awaited<ReturnType<typeof paymentsControllerMarkAllPaid>>>
+    export type PaymentsControllerMarkAllPaidMutationBody = MarkAllPaidDto
+    export type PaymentsControllerMarkAllPaidMutationError = unknown
+
+    /**
+ * @summary Mark all pending payments as paid, optionally scoped to a campaign (Admin only)
+ */
+export const usePaymentsControllerMarkAllPaid = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof paymentsControllerMarkAllPaid>>, TError,{data: MarkAllPaidDto}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof paymentsControllerMarkAllPaid>>,
+        TError,
+        {data: MarkAllPaidDto},
+        TContext
+      > => {
+
+      const mutationOptions = getPaymentsControllerMarkAllPaidMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    
 /**
  * @summary Get current influencer payments
  */
