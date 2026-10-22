@@ -23,6 +23,22 @@ AXIOS_INSTANCE.interceptors.request.use((config) => {
   return config;
 });
 
+// Auto-logout whenever the API rejects with 401 (expired or invalid token).
+// This package can't import the app's auth store, so clear the persisted
+// session directly — the hard redirect remounts the app logged out.
+AXIOS_INSTANCE.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("auth-storage");
+      if (!window.location.pathname.startsWith("/login")) {
+        window.location.href = "/login";
+      }
+    }
+    return Promise.reject(error);
+  },
+);
+
 // Custom mutator function for Orval
 export const axiosInstance = <T>(config: AxiosRequestConfig): Promise<T> => {
   const source = Axios.CancelToken.source();
