@@ -41,7 +41,7 @@ import {
 import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { isCampaignExpired } from "@/lib/campaign-utils";
-import Image from "next/image";
+import { CampaignAssetThumbnail } from "@/components/campaign-asset-thumbnail";
 
 export default function InfluencerCampaignsPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -286,8 +286,14 @@ export default function InfluencerCampaignsPage() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {campaign.campaignAsset && (
-                      <div
-                        className="relative aspect-video rounded-lg overflow-hidden bg-muted cursor-pointer hover:opacity-90 transition-opacity"
+                      <CampaignAssetThumbnail
+                        src={campaign.campaignAsset as unknown as string}
+                        title={
+                          (campaign.title as unknown as string) ||
+                          campaign.brandName
+                        }
+                        className="aspect-video rounded-lg"
+                        playIconSize="lg"
                         onClick={() =>
                           setSelectedAsset({
                             url: campaign.campaignAsset as any,
@@ -295,38 +301,7 @@ export default function InfluencerCampaignsPage() {
                               (campaign.title as any) || campaign.brandName,
                           })
                         }
-                      >
-                        {(campaign.campaignAsset as any).match(
-                          /\.(mp4|webm|ogg)$/i,
-                        ) ? (
-                          <div className="relative w-full h-full flex items-center justify-center bg-black/80">
-                            <video
-                              src={campaign.campaignAsset as any}
-                              className="w-full h-full object-cover"
-                              muted
-                            />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <div className="bg-white/90 rounded-full p-3">
-                                <svg
-                                  className="w-8 h-8 text-black"
-                                  fill="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path d="M8 5v14l11-7z" />
-                                </svg>
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <Image
-                            src={campaign.campaignAsset as any}
-                            alt="Campaign asset"
-                            className="w-full h-full object-cover"
-                            width={500}
-                            height={500}
-                          />
-                        )}
-                      </div>
+                      />
                     )}
                     {/* <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">

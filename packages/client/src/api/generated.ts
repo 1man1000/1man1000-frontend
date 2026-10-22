@@ -146,6 +146,20 @@ export const ProfileResponseDtoAgeBracket = {
   age_55_plus: 'age_55_plus',
 } as const;
 
+export type ProfileResponseDtoContentPreferencesItem = typeof ProfileResponseDtoContentPreferencesItem[keyof typeof ProfileResponseDtoContentPreferencesItem];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const ProfileResponseDtoContentPreferencesItem = {
+  sports_gaming: 'sports_gaming',
+  music_entertainment: 'music_entertainment',
+  food_lifestyle: 'food_lifestyle',
+  technology_digital: 'technology_digital',
+  education: 'education',
+  travel_tourism: 'travel_tourism',
+  social_community: 'social_community',
+} as const;
+
 export interface ProfileResponseDto {
   id: string;
   email: string;
@@ -171,6 +185,7 @@ export interface ProfileResponseDto {
   schoolName?: string;
   gender?: ProfileResponseDtoGender;
   ageBracket?: ProfileResponseDtoAgeBracket;
+  contentPreferences?: ProfileResponseDtoContentPreferencesItem[];
   createdAt: string;
 }
 
@@ -383,6 +398,20 @@ export const UpdateUserDtoAgeBracket = {
   age_55_plus: 'age_55_plus',
 } as const;
 
+export type UpdateUserDtoContentPreferencesItem = typeof UpdateUserDtoContentPreferencesItem[keyof typeof UpdateUserDtoContentPreferencesItem];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const UpdateUserDtoContentPreferencesItem = {
+  sports_gaming: 'sports_gaming',
+  music_entertainment: 'music_entertainment',
+  food_lifestyle: 'food_lifestyle',
+  technology_digital: 'technology_digital',
+  education: 'education',
+  travel_tourism: 'travel_tourism',
+  social_community: 'social_community',
+} as const;
+
 export interface UpdateUserDto {
   name?: string;
   company?: string;
@@ -398,6 +427,8 @@ export interface UpdateUserDto {
   schoolName?: string;
   gender?: UpdateUserDtoGender;
   ageBracket?: UpdateUserDtoAgeBracket;
+  /** Content types the influencer is willing to participate in */
+  contentPreferences?: UpdateUserDtoContentPreferencesItem[];
 }
 
 export type UpdateUserStatusDtoStatus = typeof UpdateUserStatusDtoStatus[keyof typeof UpdateUserStatusDtoStatus];
