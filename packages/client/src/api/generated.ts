@@ -1263,6 +1263,18 @@ export interface PaymentsListResponseDto {
   meta: PaginationMetaDto;
 }
 
+export interface MarkAllPaidDto {
+  /** Scope the bulk payout to a campaign (includes its sub-campaigns). Omit to pay all pending payments. */
+  campaignId?: string;
+}
+
+export interface MarkAllPaidResponseDto {
+  /** Number of payments marked as paid */
+  updated: number;
+  /** Total amount paid out */
+  totalAmount: number;
+}
+
 export interface InfluencerEarningsResponseDto {
   totalEarnings: number;
   paidEarnings: number;
@@ -6887,6 +6899,71 @@ export function usePaymentsControllerExportPaymentsToCsv<TData = Awaited<ReturnT
 
 
 
+/**
+ * @summary Mark all pending payments as paid, optionally scoped to a campaign (Admin only)
+ */
+export const paymentsControllerMarkAllPaid = (
+    markAllPaidDto: MarkAllPaidDto,
+ signal?: AbortSignal
+) => {
+      
+      
+      return axiosInstance<MarkAllPaidResponseDto>(
+      {url: `/api/payments/mark-all-paid`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: markAllPaidDto, signal
+    },
+      );
+    }
+  
+
+
+export const getPaymentsControllerMarkAllPaidMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof paymentsControllerMarkAllPaid>>, TError,{data: MarkAllPaidDto}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof paymentsControllerMarkAllPaid>>, TError,{data: MarkAllPaidDto}, TContext> => {
+
+const mutationKey = ['paymentsControllerMarkAllPaid'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof paymentsControllerMarkAllPaid>>, {data: MarkAllPaidDto}> = (props) => {
+          const {data} = props ?? {};
+
+          return  paymentsControllerMarkAllPaid(data,)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PaymentsControllerMarkAllPaidMutationResult = NonNullable<Awaited<ReturnType<typeof paymentsControllerMarkAllPaid>>>
+    export type PaymentsControllerMarkAllPaidMutationBody = MarkAllPaidDto
+    export type PaymentsControllerMarkAllPaidMutationError = unknown
+
+    /**
+ * @summary Mark all pending payments as paid, optionally scoped to a campaign (Admin only)
+ */
+export const usePaymentsControllerMarkAllPaid = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof paymentsControllerMarkAllPaid>>, TError,{data: MarkAllPaidDto}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof paymentsControllerMarkAllPaid>>,
+        TError,
+        {data: MarkAllPaidDto},
+        TContext
+      > => {
+
+      const mutationOptions = getPaymentsControllerMarkAllPaidMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    
 /**
  * @summary Get current influencer payments
  */
