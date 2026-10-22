@@ -992,6 +992,15 @@ export interface CampaignDetailResponseDto {
   updatedAt: string;
 }
 
+export type UpdateCampaignDtoPaymentType = typeof UpdateCampaignDtoPaymentType[keyof typeof UpdateCampaignDtoPaymentType];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const UpdateCampaignDtoPaymentType = {
+  per_view: 'per_view',
+  per_views: 'per_views',
+} as const;
+
 export interface UpdateCampaignDto {
   brandName?: string;
   title?: string;
@@ -1005,6 +1014,8 @@ export interface UpdateCampaignDto {
   adCreatives?: string[];
   campaignAsset?: string;
   submissionDeadlineDays?: number;
+  paymentTiers?: PaymentTierDto[];
+  paymentType?: UpdateCampaignDtoPaymentType;
 }
 
 export type UpdateCampaignStatusDtoStatus = typeof UpdateCampaignStatusDtoStatus[keyof typeof UpdateCampaignStatusDtoStatus];
