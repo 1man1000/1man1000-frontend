@@ -30,6 +30,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { VerificationCodeInput } from "@/components/verification-code-input";
+import { GoogleSignInButton } from "@/components/auth/social-buttons";
 import Image from "next/image";
 
 type RegisterResponse = {
@@ -317,6 +318,10 @@ export default function RegisterClientPage() {
                   required
                   disabled={isLoading}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Please use your full legal name (first and last name), not a
+                  nickname.
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -446,6 +451,10 @@ export default function RegisterClientPage() {
               )}
             </Button>
           </form>
+
+          <div className="mt-4">
+            <GoogleSignInButton role="client" />
+          </div>
 
           <div className="mt-6 text-center text-sm space-y-2">
             <p className="text-muted-foreground">

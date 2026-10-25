@@ -12,15 +12,16 @@ import {
 } from "@workspace/ui/components/card";
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
-import { Search, Eye, Calendar, TrendingUp } from "lucide-react";
+import { Search, Eye, Calendar, TrendingUp, Users } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { ShareCampaignButton } from "@/components/share-campaign-button";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
 
 export default function AvailableCampaignsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
-  const [limit] = useState(12);
+  const [limit, setLimit] = useState(12);
 
   const {
     data: response,
@@ -135,6 +136,17 @@ export default function AvailableCampaignsPage() {
                     </p>
                   </div>
 
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Users className="h-4 w-4" />
+                    <span>
+                      {campaign._count?.assignments ?? 0}{" "}
+                      {campaign._count?.assignments === 1
+                        ? "influencer"
+                        : "influencers"}{" "}
+                      participating
+                    </span>
+                  </div>
+
                   <div className="flex gap-2 pt-2">
                     <Button
                       variant="outline"
@@ -149,14 +161,37 @@ export default function AvailableCampaignsPage() {
                         View Details
                       </Link>
                     </Button>
+                    <ShareCampaignButton
+                      campaignId={campaign.id}
+                      campaignTitle={String(
+                        campaign.title ?? campaign.brandName,
+                      )}
+                    />
                   </div>
                 </CardContent>
               </Card>
             ))}
           </div>
 
-          {(totalPages as number) > 1 && (
+          {(totalPages as number) >= 1 && (
             <div className="flex items-center justify-center gap-2 pt-4">
+              <div className="flex items-center gap-2 mr-2">
+                <span className="text-sm text-muted-foreground">Rows</span>
+                <select
+                  value={limit}
+                  onChange={(e) => {
+                    setLimit(Number(e.target.value));
+                    setPage(1);
+                  }}
+                  className="text-sm border rounded px-2 py-1.5 bg-background"
+                >
+                  {[12, 24, 48, 96].map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <Button
                 variant="outline"
                 size="sm"

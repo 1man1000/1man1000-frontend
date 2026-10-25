@@ -1,10 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   usePaymentsControllerFindAll,
+  usePaymentsControllerUpdate,
   usePaymentsControllerUpdateStatus,
   usePaymentsControllerGetAdminStats,
+  usePaymentsControllerMarkAllPaid,
+  useCampaignsControllerFindAll,
+  paymentsControllerExportPaymentsToCsv,
   type PaymentResponseDto,
   type UpdatePaymentStatusDto,
 } from "@workspace/client";
@@ -30,6 +35,15 @@ import {
   AlertDialogTitle,
 } from "@workspace/ui/components/alert-dialog";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@workspace/ui/components/dialog";
+import { Label } from "@workspace/ui/components/label";
+import {
   Tabs,
   TabsContent,
   TabsList,
@@ -42,6 +56,9 @@ import {
   DollarSign,
   TrendingUp,
   ArrowUpDown,
+  Download,
+  Pencil,
+  CheckCheck,
 } from "lucide-react";
 import { ErrorState } from "@/components/ui/error-state";
 import { ListPaginationWrapper } from "@/components/ui/list-pagination-wrapper";
@@ -56,12 +73,14 @@ type Payment = PaymentResponseDto;
 interface PaymentListItemProps {
   item: Payment;
   onMarkPaid: (payment: Payment) => void;
+  onEditAmount: (payment: Payment) => void;
   isUpdatingStatus: boolean;
 }
 
 function PaymentListItem({
   item: payment,
   onMarkPaid,
+  onEditAmount,
   isUpdatingStatus,
 }: PaymentListItemProps) {
   const influencerName =
@@ -77,17 +96,26 @@ function PaymentListItem({
 
   return (
     <div className="flex items-center justify-between p-4">
-      <div className="flex items-center gap-4">
+      <Link
+        href={
+          payment.influencer?.id
+            ? `/admin/users/${payment.influencer.id}`
+            : "#"
+        }
+        className="flex items-center gap-4 hover:opacity-80 transition-opacity"
+      >
         <Avatar>
           <AvatarFallback>{avatarText}</AvatarFallback>
         </Avatar>
         <div>
-          <p className="font-medium">{influencerName as string}</p>
+          <p className="font-medium hover:underline">
+            {influencerName as string}
+          </p>
           <p className="text-sm text-muted-foreground">
             {campaignName as string}
           </p>
         </div>
-      </div>
+      </Link>
       <div className="flex items-center gap-4">
         <div className="text-right">
           <p className="font-semibold">
@@ -105,14 +133,24 @@ function PaymentListItem({
           {payment.status}
         </Badge>
         {payment.status === "pending" && (
-          <Button
-            size="sm"
-            disabled={isUpdatingStatus}
-            onClick={() => onMarkPaid(payment)}
-          >
-            <CheckCircle className="mr-1 h-4 w-4" />
-            Mark Paid
-          </Button>
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onEditAmount(payment)}
+            >
+              <Pencil className="mr-1 h-4 w-4" />
+              Edit Amount
+            </Button>
+            <Button
+              size="sm"
+              disabled={isUpdatingStatus}
+              onClick={() => onMarkPaid(payment)}
+            >
+              <CheckCircle className="mr-1 h-4 w-4" />
+              Mark Paid
+            </Button>
+          </>
         )}
       </div>
     </div>
@@ -124,10 +162,16 @@ export default function AdminPaymentsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [activeTab, setActiveTab] = useState("pending");
   const [page, setPage] = useState(1);
-  const [limit] = useState(20);
+  const [limit, setLimit] = useState(20);
   const [sortBy, setSortBy] = useState<"amount" | "date">("date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [campaignId, setCampaignId] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editAmount, setEditAmount] = useState("");
+  const [editError, setEditError] = useState("");
   const [selectedPayment, setSelectedPayment] =
     useState<PaymentResponseDto | null>(null);
 
@@ -153,28 +197,74 @@ export default function AdminPaymentsPage() {
     limit,
     page,
     status: statusParam,
+    campaignId: campaignId || undefined,
     sortBy,
     sortOrder,
     search: debouncedSearch || undefined,
   });
+
+  const { data: campaignsResponse } = useCampaignsControllerFindAll({
+    limit: 100,
+  });
+  const campaigns = campaignsResponse?.data || [];
 
   const {
     data: stats,
     isLoading: isLoadingStats,
     isError: isErrorStats,
     refetch: refetchStats,
-  } = usePaymentsControllerGetAdminStats({
-    query: {
-      staleTime: 10_000,
+  } = usePaymentsControllerGetAdminStats(
+    { campaignId: campaignId || undefined },
+    {
+      query: {
+        staleTime: 10_000,
+      },
     },
-  });
+  );
 
   const { mutateAsync: updatePaymentStatus, isPending: isUpdatingStatus } =
     usePaymentsControllerUpdateStatus();
 
+  const { mutateAsync: updatePayment, isPending: isUpdatingPayment } =
+    usePaymentsControllerUpdate();
+
+  const { mutateAsync: markAllPaid, isPending: isMarkingAllPaid } =
+    usePaymentsControllerMarkAllPaid();
+
   const handleMarkPaid = (payment: Payment) => {
     setSelectedPayment(payment);
     setConfirmOpen(true);
+  };
+
+  const handleEditAmount = (payment: Payment) => {
+    setSelectedPayment(payment);
+    setEditAmount((payment.totalAmount ?? 0).toString());
+    setEditError("");
+    setEditOpen(true);
+  };
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const response = await paymentsControllerExportPaymentsToCsv({
+        campaignId: campaignId || undefined,
+        status: statusParam,
+        search: debouncedSearch || undefined,
+      });
+
+      const url = window.URL.createObjectURL(response);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `payments-export-${new Date().toISOString().split("T")[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error("Export failed:", error);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   if (isError || isErrorStats) {
@@ -197,6 +287,13 @@ export default function AdminPaymentsPage() {
   const pendingPayouts = stats?.pendingPayouts ?? 0;
   const pendingCount = stats?.pendingCount ?? 0;
   const paidThisMonth = stats?.paidThisMonth ?? 0;
+  const filteredCampaign = campaignId
+    ? campaigns.find((campaign) => campaign.id === campaignId)
+    : undefined;
+  const filteredCampaignName = filteredCampaign
+    ? ((filteredCampaign.title as unknown as string) ||
+      filteredCampaign.brandName)
+    : undefined;
   const now = new Date();
 
   const selectedInfluencerName =
@@ -226,7 +323,9 @@ export default function AdminPaymentsPage() {
             <div className="text-2xl font-bold">
               GH₵{totalPaid.toLocaleString()}
             </div>
-            <p className="text-xs text-muted-foreground">All time</p>
+            <p className="text-xs text-muted-foreground">
+              {filteredCampaignName ?? "All time"}
+            </p>
           </CardContent>
         </Card>
 
@@ -293,6 +392,21 @@ export default function AdminPaymentsPage() {
         </div>
         <div className="flex items-center gap-2">
           <select
+            value={campaignId}
+            onChange={(e) => {
+              setCampaignId(e.target.value);
+              setPage(1);
+            }}
+            className="text-sm border rounded px-3 py-2 bg-background"
+          >
+            <option value="">All Campaigns</option>
+            {campaigns.map((campaign) => (
+              <option key={campaign.id} value={campaign.id}>
+                {(campaign.title as unknown as string) || campaign.brandName}
+              </option>
+            ))}
+          </select>
+          <select
             value={sortBy}
             onChange={(e) => {
               setSortBy(e.target.value as "amount" | "date");
@@ -313,6 +427,23 @@ export default function AdminPaymentsPage() {
           >
             <ArrowUpDown className="h-4 w-4 mr-2" />
             {sortOrder === "asc" ? "Ascending" : "Descending"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExport}
+            disabled={isExporting}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            {isExporting ? "Exporting..." : "Export CSV"}
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => setBulkConfirmOpen(true)}
+            disabled={pendingCount === 0}
+          >
+            <CheckCheck className="h-4 w-4 mr-2" />
+            Pay All
           </Button>
         </div>
       </div>
@@ -342,6 +473,7 @@ export default function AdminPaymentsPage() {
                   <PaymentListItem
                     {...props}
                     onMarkPaid={handleMarkPaid}
+                    onEditAmount={handleEditAmount}
                     isUpdatingStatus={isUpdatingStatus}
                   />
                 )}
@@ -350,6 +482,11 @@ export default function AdminPaymentsPage() {
                 meta={paymentsMeta}
                 page={page}
                 onPageChange={setPage}
+                limit={limit}
+                onLimitChange={(newLimit) => {
+                  setLimit(newLimit);
+                  setPage(1);
+                }}
               />
             </CardContent>
           </Card>
@@ -396,6 +533,122 @@ export default function AdminPaymentsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={bulkConfirmOpen} onOpenChange={setBulkConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Mark all {pendingCount} pending payments as paid?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will mark {pendingCount} pending{" "}
+              {pendingCount === 1 ? "payment" : "payments"} totalling GH₵
+              {pendingPayouts.toFixed(2)} as paid
+              {filteredCampaignName ? ` for ${filteredCampaignName}` : ""}.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isMarkingAllPaid}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isMarkingAllPaid || pendingCount === 0}
+              onClick={async () => {
+                try {
+                  await markAllPaid({
+                    data: { campaignId: campaignId || undefined },
+                  });
+                  await refetch();
+                  await refetchStats();
+                  setBulkConfirmOpen(false);
+                } catch (error) {
+                  console.error("Bulk mark paid failed:", error);
+                }
+              }}
+            >
+              {isMarkingAllPaid ? "Processing..." : "Confirm"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog
+        open={editOpen}
+        onOpenChange={(open) => {
+          setEditOpen(open);
+          if (!open) {
+            setSelectedPayment(null);
+            setEditError("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit payment amount</DialogTitle>
+            <DialogDescription>
+              Update the amount to be paid to{" "}
+              {selectedInfluencerName as string} on {selectedCampaignName}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="payment-amount">Amount (GH₵)</Label>
+            <Input
+              id="payment-amount"
+              type="number"
+              min="0"
+              step="0.01"
+              value={editAmount}
+              onChange={(e) => setEditAmount(e.target.value)}
+            />
+            {editError && (
+              <p className="text-sm text-destructive">{editError}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={isUpdatingPayment}
+              onClick={() => {
+                setEditOpen(false);
+                setSelectedPayment(null);
+                setEditError("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={!selectedPayment || isUpdatingPayment}
+              onClick={async () => {
+                if (!selectedPayment) return;
+                const amount = parseFloat(editAmount);
+                if (isNaN(amount) || amount < 0) {
+                  setEditError("Enter a valid amount");
+                  return;
+                }
+                try {
+                  await updatePayment({
+                    id: selectedPayment.id,
+                    data: { totalAmount: amount },
+                  });
+                  await refetch();
+                  await refetchStats();
+                  setEditOpen(false);
+                  setSelectedPayment(null);
+                  setEditError("");
+                } catch (error: any) {
+                  setEditError(
+                    error?.response?.data?.message ||
+                      "Failed to update payment amount",
+                  );
+                }
+              }}
+            >
+              {isUpdatingPayment ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

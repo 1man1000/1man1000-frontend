@@ -71,7 +71,7 @@ export default function ClientAnalyticsPage() {
 
   // Get campaign performance data
   const campaignPerformance = campaigns
-    .filter((c) => c.status === "active" || c.status === "approved")
+    .filter((c) => c.status === "approved")
     .map((campaign) => ({
       id: campaign.id,
       name: campaign.title || campaign.brandName,
@@ -150,7 +150,7 @@ export default function ClientAnalyticsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Spent
+              Total Budget
             </CardTitle>
             <Target className="h-4 w-4 text-red-600" />
           </CardHeader>

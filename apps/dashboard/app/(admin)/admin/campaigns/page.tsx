@@ -4,8 +4,8 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   useCampaignsControllerFindAll,
-  useCampaignsControllerUpdate,
-  UpdateCampaignDtoStatus,
+  useCampaignsControllerUpdateStatus,
+  UpdateCampaignStatusDtoStatus,
   CampaignsListResponseDto,
 } from "@workspace/client";
 import { Button } from "@workspace/ui/components/button";
@@ -35,6 +35,10 @@ import {
   Plus,
   Loader2,
   ArrowUpDown,
+  Pause,
+  Play,
+  OctagonX,
+  GitBranch,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -87,7 +91,7 @@ export default function AdminCampaignsPage() {
     }
   }, [response, isLoading]);
 
-  const updateStatusMutation = useCampaignsControllerUpdate({
+  const updateStatusMutation = useCampaignsControllerUpdateStatus({
     mutation: {
       onSuccess: () => {
         refetch();
@@ -135,7 +139,7 @@ export default function AdminCampaignsPage() {
       await updateStatusMutation.mutateAsync({
         id: approvingCampaign.id,
         data: {
-          status: UpdateCampaignDtoStatus.approved,
+          status: UpdateCampaignStatusDtoStatus.approved,
           paymentTiers: validTiers,
         },
       });
@@ -152,10 +156,64 @@ export default function AdminCampaignsPage() {
         try {
           await updateStatusMutation.mutateAsync({
             id,
-            data: { status: UpdateCampaignDtoStatus.rejected },
+            data: { status: UpdateCampaignStatusDtoStatus.rejected },
           });
         } catch (error) {
           console.error("Error rejecting campaign:", error);
+        }
+      }
+    },
+    [updateStatusMutation],
+  );
+
+  const handlePause = useCallback(
+    async (id: string) => {
+      if (
+        window.confirm(
+          "Pause this campaign? Influencers won't be able to participate or submit while paused.",
+        )
+      ) {
+        try {
+          await updateStatusMutation.mutateAsync({
+            id,
+            data: { status: UpdateCampaignStatusDtoStatus.paused },
+          });
+        } catch (error) {
+          console.error("Error pausing campaign:", error);
+        }
+      }
+    },
+    [updateStatusMutation],
+  );
+
+  const handleResume = useCallback(
+    async (id: string) => {
+      try {
+        await updateStatusMutation.mutateAsync({
+          id,
+          data: { status: UpdateCampaignStatusDtoStatus.approved },
+        });
+      } catch (error) {
+        console.error("Error resuming campaign:", error);
+      }
+    },
+    [updateStatusMutation],
+  );
+
+  const handleEnd = useCallback(
+    async (id: string) => {
+      if (
+        window.confirm(
+          "End this campaign? It will be marked as completed and will no longer accept participation or submissions.",
+        )
+      ) {
+        try {
+          await updateStatusMutation.mutateAsync({
+            id,
+            data: { status: UpdateCampaignStatusDtoStatus.completed },
+          });
+        } catch (error) {
+          console.error("Error ending campaign:", error);
         }
       }
     },
@@ -185,12 +243,30 @@ export default function AdminCampaignsPage() {
             const campaign = row.original;
             return (
               <div className="flex flex-col">
-                <span className="font-medium">
+                <span className="font-medium flex items-center gap-1.5">
                   {(campaign.title || "—") as string}
                 </span>
                 <span className="text-sm text-muted-foreground">
                   {campaign.brandName}
                 </span>
+                {campaign.subCampaigns && campaign.subCampaigns.length > 0 && (
+                  <div className="mt-1.5 space-y-0.5">
+                    {campaign.subCampaigns.map((sub) => (
+                      <Link
+                        key={sub.id}
+                        href={`/admin/campaigns/${sub.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-1.5 text-xs text-primary hover:underline"
+                      >
+                        <GitBranch className="h-3 w-3 shrink-0" />
+                        <span>{sub.title || sub.brandName}</span>
+                        <span className="text-muted-foreground">
+                          ({sub.status})
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           },
@@ -337,6 +413,59 @@ export default function AdminCampaignsPage() {
                       </DropdownMenuItem>
                     </>
                   )}
+                  {campaign.status === "approved" && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePause(campaign.id);
+                        }}
+                        disabled={updateStatusMutation.isPending}
+                      >
+                        <Pause className="mr-2 h-4 w-4" />
+                        Pause
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEnd(campaign.id);
+                        }}
+                        disabled={updateStatusMutation.isPending}
+                      >
+                        <OctagonX className="mr-2 h-4 w-4" />
+                        End Campaign
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  {campaign.status === "paused" && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-emerald-600"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleResume(campaign.id);
+                        }}
+                        disabled={updateStatusMutation.isPending}
+                      >
+                        <Play className="mr-2 h-4 w-4" />
+                        Resume
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEnd(campaign.id);
+                        }}
+                        disabled={updateStatusMutation.isPending}
+                      >
+                        <OctagonX className="mr-2 h-4 w-4" />
+                        End Campaign
+                      </DropdownMenuItem>
+                    </>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             );
@@ -348,6 +477,9 @@ export default function AdminCampaignsPage() {
         updateStatusMutation.isPending,
         handleApproveClick,
         handleReject,
+        handlePause,
+        handleResume,
+        handleEnd,
       ],
     );
 
@@ -374,7 +506,7 @@ export default function AdminCampaignsPage() {
           <option value="all">All Statuses</option>
           <option value="pending">Pending</option>
           <option value="approved">Approved</option>
-          <option value="active">Active</option>
+          <option value="paused">Paused</option>
           <option value="completed">Completed</option>
           <option value="rejected">Rejected</option>
         </select>

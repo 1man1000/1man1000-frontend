@@ -56,6 +56,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { ListPaginationWrapper } from "@/components/ui/list-pagination-wrapper";
 import Image from "next/image";
+import Link from "next/link";
 import { downloadCampaignAsset } from "@/lib/services/downloadService";
 
 type Submission = {
@@ -121,16 +122,26 @@ function SubmissionListItem({
               "Unknown Campaign"}
           </p>
           <div className="flex items-center gap-2 mt-1">
-            <Avatar className="h-5 w-5">
-              <AvatarImage src={submission.influencer?.avatarUrl} />
-              <AvatarFallback className="bg-gradient-to-br from-orange-500 to-orange-600 text-white text-[10px]">
-                {submission.influencer?.name?.slice(0, 2).toUpperCase() || "??"}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex items-center gap-2">
-              <p className="text-sm text-muted-foreground">
+            <Link
+              href={
+                submission.influencer?.id
+                  ? `/admin/users/${submission.influencer.id}`
+                  : "#"
+              }
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+            >
+              <Avatar className="h-5 w-5">
+                <AvatarImage src={submission.influencer?.avatarUrl} />
+                <AvatarFallback className="bg-gradient-to-br from-orange-500 to-orange-600 text-white text-[10px]">
+                  {submission.influencer?.name?.slice(0, 2).toUpperCase() ||
+                    "??"}
+                </AvatarFallback>
+              </Avatar>
+              <p className="text-sm text-muted-foreground hover:underline">
                 {submission.influencer?.name || "Unknown"}
               </p>
+            </Link>
+            <div className="flex items-center gap-2">
               {submission.isDuplicate && (
                 <Badge
                   variant="outline"
@@ -235,7 +246,7 @@ export default function AdminSubmissionsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [activeTab, setActiveTab] = useState("pending");
   const [page, setPage] = useState(1);
-  const [limit] = useState(20);
+  const [limit, setLimit] = useState(20);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
@@ -505,6 +516,11 @@ export default function AdminSubmissionsPage() {
                 meta={response?.meta}
                 page={page}
                 onPageChange={setPage}
+                limit={limit}
+                onLimitChange={(newLimit) => {
+                  setLimit(newLimit);
+                  setPage(1);
+                }}
               />
             </CardContent>
           </Card>

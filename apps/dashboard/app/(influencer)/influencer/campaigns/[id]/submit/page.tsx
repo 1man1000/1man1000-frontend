@@ -4,10 +4,9 @@ import { useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   useCampaignsControllerFindOne,
-  useSubmissionsControllerCreate,
   getSubmissionsControllerGetInfluencerSubmissionsQueryKey,
   getCampaignsControllerGetInfluencerCampaignsQueryKey,
 } from "@workspace/client";
@@ -42,6 +41,8 @@ import { submissionSchema, type SubmissionFormData } from "@/lib/schemas";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { extractViewCount } from "@/lib/services/ocrService";
+import { CampaignJourneyStepper } from "@/components/campaign-journey-stepper";
+import { useAuthStore } from "@/lib/auth-store";
 import { isCampaignExpired } from "@/lib/campaign-utils";
 import {
   validateImage,
@@ -59,6 +60,13 @@ type Campaign = {
   ratePerView?: number;
   paymentTiers?: { lowerLimit: number; upperLimit?: number; amount: number }[];
   endDate: string;
+  status?: string;
+  submissions?: {
+    influencerId?: string;
+    influencer?: { id?: string };
+    approvalStatus?: string;
+    submissionDate?: string;
+  }[];
 };
 
 export default function SubmitCampaignPage() {
@@ -66,6 +74,7 @@ export default function SubmitCampaignPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const campaignId = params.id as string;
+  const { user } = useAuthStore();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [platform, setPlatform] = useState<Platform>("instagram");
@@ -93,59 +102,45 @@ export default function SubmitCampaignPage() {
     },
   });
 
-  const submitMutation = useSubmissionsControllerCreate({
-    mutation: {
-      onSuccess: async (data: any) => {
-        // After creating submission, upload screenshot if file is selected
-        if (selectedFile && data.id) {
-          try {
-            const formData = new FormData();
-            formData.append("screenshot", selectedFile);
+  const submitMutation = useMutation({
+    mutationFn: async (data: SubmissionFormData) => {
+      const formData = new FormData();
+      formData.append("campaignId", data.campaignId);
+      formData.append("extractedViewCount", String(data.extractedViewCount));
+      formData.append("screenshot", selectedFile!);
 
-            // Upload screenshot using fetch
-            const token = localStorage.getItem("auth-storage");
-            const authData = token ? JSON.parse(token) : null;
-            const accessToken = authData?.state?.token;
+      const token = localStorage.getItem("auth-storage");
+      const authData = token ? JSON.parse(token) : null;
+      const accessToken = authData?.state?.token;
 
-            const response = await fetch(
-              `${process.env.NEXT_PUBLIC_API_URL}/api/submissions/${data.id}/upload-screenshot`,
-              {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${accessToken}`,
-                },
-                body: formData,
-              },
-            );
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/submissions`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: formData,
+        },
+      );
 
-            if (!response.ok) {
-              throw new Error("Failed to upload screenshot");
-            }
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(
+          errorBody?.message || "Failed to submit. Please try again.",
+        );
+      }
 
-            queryClient.invalidateQueries({
-              queryKey:
-                getSubmissionsControllerGetInfluencerSubmissionsQueryKey(),
-            });
-            queryClient.invalidateQueries({
-              queryKey: getCampaignsControllerGetInfluencerCampaignsQueryKey(),
-            });
-            router.push("/influencer/submissions");
-          } catch (error) {
-            console.error("Screenshot upload error:", error);
-            alert("Failed to upload screenshot. Please try again.");
-          }
-        } else {
-          // No file to upload, redirect directly
-          queryClient.invalidateQueries({
-            queryKey:
-              getSubmissionsControllerGetInfluencerSubmissionsQueryKey(),
-          });
-          queryClient.invalidateQueries({
-            queryKey: getCampaignsControllerGetInfluencerCampaignsQueryKey(),
-          });
-          router.push("/influencer/submissions");
-        }
-      },
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: getSubmissionsControllerGetInfluencerSubmissionsQueryKey(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: getCampaignsControllerGetInfluencerCampaignsQueryKey(),
+      });
+      router.push("/influencer/submissions");
     },
   });
 
@@ -154,13 +149,7 @@ export default function SubmitCampaignPage() {
       return;
     }
 
-    // Create submission with JSON data (file will be uploaded separately)
-    submitMutation.mutate({
-      data: {
-        campaignId: data.campaignId,
-        extractedViewCount: data.extractedViewCount,
-      },
-    });
+    submitMutation.mutate(data);
   };
 
   const handleFileSelect = useCallback(
@@ -229,8 +218,31 @@ export default function SubmitCampaignPage() {
 
   const c = campaign as Campaign;
   const isExpired = isCampaignExpired(c.endDate);
+  const isPaused = c.status === "paused";
+  const isUnavailable = c.status !== "approved" && c.status !== "active";
 
-  if (isExpired) {
+  const mySubmission = c.submissions
+    ?.filter(
+      (s) => s.influencerId === user?.id || s.influencer?.id === user?.id,
+    )
+    .sort(
+      (a, b) =>
+        new Date(b.submissionDate || 0).getTime() -
+        new Date(a.submissionDate || 0).getTime(),
+    )[0];
+
+  if (isExpired || isPaused || isUnavailable) {
+    const heading = isExpired
+      ? "Campaign Expired"
+      : isPaused
+        ? "Campaign Paused"
+        : "Submissions Closed";
+    const message = isExpired
+      ? `This campaign has expired. The deadline was ${new Date(c.endDate).toLocaleString()}. Submissions are no longer being accepted.`
+      : isPaused
+        ? "This campaign has been paused by an administrator. Submissions are temporarily disabled — check back later."
+        : "This campaign is no longer accepting submissions.";
+
     return (
       <div className="space-y-6 max-w-2xl">
         <div className="flex items-center gap-4">
@@ -240,9 +252,7 @@ export default function SubmitCampaignPage() {
             </Link>
           </Button>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">
-              Campaign Expired
-            </h1>
+            <h1 className="text-2xl font-bold tracking-tight">{heading}</h1>
             <p className="text-muted-foreground">{c.title || c.brandName}</p>
           </div>
         </div>
@@ -254,11 +264,7 @@ export default function SubmitCampaignPage() {
             </div>
             <div>
               <h2 className="text-lg font-semibold">Submissions Closed</h2>
-              <p className="text-muted-foreground mt-1">
-                This campaign has expired. The deadline was{" "}
-                {new Date(c.endDate).toLocaleDateString()}. Submissions are no
-                longer being accepted.
-              </p>
+              <p className="text-muted-foreground mt-1">{message}</p>
             </div>
             <Button asChild>
               <Link href={`/influencer/campaigns/${campaignId}`}>
@@ -286,6 +292,20 @@ export default function SubmitCampaignPage() {
           <p className="text-muted-foreground">{c.title || c.brandName}</p>
         </div>
       </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Your Journey</CardTitle>
+          <CardDescription>
+            What happens before and after you submit
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CampaignJourneyStepper
+            submissionStatus={mySubmission?.approvalStatus}
+          />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -541,7 +561,9 @@ export default function SubmitCampaignPage() {
         {submitMutation.isError && (
           <div className="rounded-xl bg-destructive/10 border border-destructive/20 p-4 text-center">
             <p className="text-sm text-destructive">
-              Failed to submit. Please check your details and try again.
+              {submitMutation.error instanceof Error
+                ? submitMutation.error.message
+                : "Failed to submit. Please check your details and try again."}
             </p>
           </div>
         )}

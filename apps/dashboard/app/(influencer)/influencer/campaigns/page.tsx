@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { CampaignAssetModal } from "@/components/campaign-asset-modal";
+import { ShareCampaignButton } from "@/components/share-campaign-button";
 import { useCampaignsControllerGetInfluencerCampaigns } from "@workspace/client";
 import {
   Card,
@@ -35,17 +36,18 @@ import {
   Upload,
   CheckCircle,
   ArrowUpDown,
+  Users,
 } from "lucide-react";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { isCampaignExpired } from "@/lib/campaign-utils";
-import Image from "next/image";
+import { CampaignAssetThumbnail } from "@/components/campaign-asset-thumbnail";
 
 export default function InfluencerCampaignsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("active");
   const [page, setPage] = useState(1);
-  const [limit] = useState(20);
+  const [limit, setLimit] = useState(20);
   const [sortBy, setSortBy] = useState("assignedDate");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [selectedAsset, setSelectedAsset] = useState<{
@@ -123,8 +125,25 @@ export default function InfluencerCampaignsPage() {
         </Button>
       </div>
 
-      {response?.meta && response.meta.totalPages > 1 && (
+      {response?.meta && (
         <div className="flex items-center justify-center gap-2">
+          <div className="flex items-center gap-2 mr-2">
+            <span className="text-sm text-muted-foreground">Rows</span>
+            <select
+              value={limit}
+              onChange={(e) => {
+                setLimit(Number(e.target.value));
+                setPage(1);
+              }}
+              className="text-sm border rounded px-2 py-1.5 bg-background"
+            >
+              {[10, 20, 50, 100].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </div>
           <Button
             variant="outline"
             size="sm"
@@ -267,8 +286,14 @@ export default function InfluencerCampaignsPage() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {campaign.campaignAsset && (
-                      <div
-                        className="relative aspect-video rounded-lg overflow-hidden bg-muted cursor-pointer hover:opacity-90 transition-opacity"
+                      <CampaignAssetThumbnail
+                        src={campaign.campaignAsset as unknown as string}
+                        title={
+                          (campaign.title as unknown as string) ||
+                          campaign.brandName
+                        }
+                        className="aspect-video rounded-lg"
+                        playIconSize="lg"
                         onClick={() =>
                           setSelectedAsset({
                             url: campaign.campaignAsset as any,
@@ -276,38 +301,7 @@ export default function InfluencerCampaignsPage() {
                               (campaign.title as any) || campaign.brandName,
                           })
                         }
-                      >
-                        {(campaign.campaignAsset as any).match(
-                          /\.(mp4|webm|ogg)$/i,
-                        ) ? (
-                          <div className="relative w-full h-full flex items-center justify-center bg-black/80">
-                            <video
-                              src={campaign.campaignAsset as any}
-                              className="w-full h-full object-cover"
-                              muted
-                            />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <div className="bg-white/90 rounded-full p-3">
-                                <svg
-                                  className="w-8 h-8 text-black"
-                                  fill="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path d="M8 5v14l11-7z" />
-                                </svg>
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <Image
-                            src={campaign.campaignAsset as any}
-                            alt="Campaign asset"
-                            className="w-full h-full object-cover"
-                            width={500}
-                            height={500}
-                          />
-                        )}
-                      </div>
+                      />
                     )}
                     {/* <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
@@ -332,9 +326,18 @@ export default function InfluencerCampaignsPage() {
                     </div> */}
 
                     <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-1.5 text-muted-foreground">
-                        <Clock className="h-4 w-4" />
-                        {new Date(campaign.endDate).toLocaleDateString()}
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                          <Clock className="h-4 w-4" />
+                          {new Date(campaign.endDate).toLocaleDateString()}
+                        </div>
+                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                          <Users className="h-4 w-4" />
+                          {campaign._count?.assignments ?? 0}{" "}
+                          {campaign._count?.assignments === 1
+                            ? "influencer"
+                            : "influencers"}
+                        </div>
                       </div>
                       {(campaign as any).hasSubmitted && (
                         <div className="flex items-center gap-1 text-xs text-emerald-600">
@@ -358,6 +361,15 @@ export default function InfluencerCampaignsPage() {
                           Details
                         </Link>
                       </Button>
+                      <ShareCampaignButton
+                        campaignId={campaign.id}
+                        campaignTitle={
+                          ((campaign.title as any) || campaign.brandName) as string
+                        }
+                        size="sm"
+                        className="flex-1"
+                        disabled={isCampaignExpired(campaign.endDate)}
+                      />
                       {!isCampaignExpired(campaign.endDate) ? (
                         <Button size="sm" className="flex-1" asChild>
                           <Link

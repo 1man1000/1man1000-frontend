@@ -17,6 +17,11 @@ import { Loader2, Info, Upload, X, FileImage } from "lucide-react";
 import Link from "next/link";
 import { campaignSchema, type CampaignFormData } from "@/lib/schemas";
 import VideoPlayerComponent from "@/components/video-player";
+import {
+  ClientCombobox,
+  type ClientOption,
+} from "@/components/client-combobox";
+import { toDateTimeInputValue } from "@/lib/campaign-utils";
 
 const industries = [
   "Technology",
@@ -33,6 +38,30 @@ const industries = [
   "Other",
 ];
 
+export type CampaignClientOption = ClientOption;
+
+export type ParentCampaignOption = {
+  id: string;
+  title?: string | null;
+  brandName: string;
+  description?: string | null;
+  industry?: string;
+  targetAudience?: string;
+  clientId?: string | null;
+  adCreatives?: string[];
+  campaignAsset?: string | null;
+  paymentType?: "per_view" | "per_views";
+  paymentTiers?: {
+    lowerLimit: number;
+    upperLimit: number | null;
+    amount: number;
+  }[];
+  budget?: number;
+  targetViewRange?: { min: number; max: number };
+  startDate?: string | Date;
+  endDate?: string | Date;
+};
+
 export type CampaignFormProps = {
   defaultValues?: Partial<CampaignFormData>;
   submitLabel: string;
@@ -44,6 +73,8 @@ export type CampaignFormProps = {
   showBudgetEstimate?: boolean;
   containerClassName?: string;
   existingAssetUrl?: string;
+  clients?: CampaignClientOption[];
+  parentCampaign?: ParentCampaignOption | null;
 };
 
 export function CampaignForm({
@@ -57,6 +88,8 @@ export function CampaignForm({
   existingAssetUrl,
   showBudgetEstimate,
   containerClassName,
+  clients,
+  parentCampaign,
 }: CampaignFormProps) {
   const mergedDefaults = useMemo(
     () => ({
@@ -65,25 +98,61 @@ export function CampaignForm({
       paymentType: "per_view" as const,
       paymentViewsThreshold: 1000,
       targetViewRange: { min: 1000, max: 10000 },
+      parentCampaignId: parentCampaign?.id,
+      // Sub-campaigns inherit every field from the parent — the admin only
+      // adjusts budget, dates and targets. The window runs from now (or the
+      // parent's start, whichever is later) until the parent ends.
+      ...(parentCampaign && {
+        brandName: parentCampaign.brandName,
+        title: parentCampaign.title ?? undefined,
+        description: parentCampaign.description ?? undefined,
+        industry: parentCampaign.industry,
+        targetAudience: parentCampaign.targetAudience,
+        clientId: parentCampaign.clientId ?? undefined,
+        adCreatives: parentCampaign.adCreatives,
+        paymentType: parentCampaign.paymentType,
+        paymentTiers: parentCampaign.paymentTiers,
+        budget: parentCampaign.budget,
+        targetViewRange: parentCampaign.targetViewRange,
+        startDate: toDateTimeInputValue(
+          new Date(
+            Math.max(
+              Date.now(),
+              parentCampaign.startDate
+                ? new Date(parentCampaign.startDate).getTime()
+                : Date.now(),
+            ),
+          ),
+        ),
+        endDate: toDateTimeInputValue(parentCampaign.endDate),
+      }),
       ...defaultValues,
     }),
-    [defaultValues],
+    [defaultValues, parentCampaign],
   );
 
   const {
     register,
     handleSubmit,
     watch,
+    setValue,
+    setError,
+    clearErrors,
     formState: { errors },
   } = useForm<CampaignFormData>({
     resolver: zodResolver(campaignSchema),
     defaultValues: mergedDefaults,
   });
 
-  console.log("errors", errors);
+  const selectedClientId = watch("clientId");
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  // Sub-campaigns inherit the parent's asset; an explicit existing asset
+  // (edit page) still wins, and a newly picked file replaces both.
+  const assetUrl =
+    existingAssetUrl || parentCampaign?.campaignAsset || undefined;
 
   const budget = watch("budget");
   const targetMax = watch("targetViewRange.max");
@@ -119,7 +188,20 @@ export function CampaignForm({
   }, [previewUrl]);
 
   const handleFormSubmit = (data: CampaignFormData) => {
-    onSubmit(data, selectedFile || undefined);
+    if (clients && !data.clientId) {
+      setError("clientId", { message: "Please select a client" });
+      return;
+    }
+
+    // datetime-local values carry no timezone — convert to an absolute
+    // ISO instant in the user's timezone before sending to the API.
+    const toIso = (value?: string) =>
+      value ? new Date(value).toISOString() : value;
+
+    onSubmit(
+      { ...data, startDate: toIso(data.startDate)!, endDate: toIso(data.endDate)! },
+      selectedFile || undefined,
+    );
   };
 
   return (
@@ -127,6 +209,24 @@ export function CampaignForm({
       onSubmit={handleSubmit(handleFormSubmit)}
       className={containerClassName || "space-y-6"}
     >
+      {parentCampaign && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="flex items-start gap-3 p-4">
+            <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-medium">
+                Sub-campaign of "{parentCampaign.title || parentCampaign.brandName}"
+              </p>
+              <p className="text-muted-foreground">
+                This campaign will be created as a sub-campaign feeding into the
+                main campaign.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {!parentCampaign && (
       <Card>
         <CardHeader>
           <CardTitle>Basic Information</CardTitle>
@@ -135,6 +235,27 @@ export function CampaignForm({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {clients && (
+            <div className="space-y-2">
+              <Label htmlFor="clientId">
+                Assign to Client <span className="text-destructive">*</span>
+              </Label>
+              <ClientCombobox
+                clients={clients}
+                value={selectedClientId}
+                invalid={!!errors.clientId}
+                onChange={(id) => {
+                  setValue("clientId", id, { shouldValidate: true });
+                  clearErrors("clientId");
+                }}
+              />
+              {errors.clientId && (
+                <p className="text-xs text-destructive">
+                  {errors.clientId.message}
+                </p>
+              )}
+            </div>
+          )}
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="brandName">
@@ -216,6 +337,7 @@ export function CampaignForm({
           </div>
         </CardContent>
       </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -246,11 +368,11 @@ export function CampaignForm({
 
             <div className="space-y-2">
               <Label htmlFor="startDate">
-                Start Date <span className="text-destructive">*</span>
+                Start Date & Time <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="startDate"
-                type="date"
+                type="datetime-local"
                 {...register("startDate")}
                 className={errors.startDate ? "border-destructive" : ""}
               />
@@ -263,11 +385,11 @@ export function CampaignForm({
 
             <div className="space-y-2">
               <Label htmlFor="endDate">
-                End Date <span className="text-destructive">*</span>
+                End Date & Time <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="endDate"
-                type="date"
+                type="datetime-local"
                 {...register("endDate")}
                 className={errors.endDate ? "border-destructive" : ""}
               />
@@ -346,7 +468,7 @@ export function CampaignForm({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {!selectedFile && !existingAssetUrl ? (
+          {!selectedFile && !assetUrl ? (
             <div
               className="border-2 border-dashed border-border/60 rounded-xl p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
               onClick={() => document.getElementById("campaignAsset")?.click()}
@@ -412,14 +534,14 @@ export function CampaignForm({
                 </Button>
               </div>
             </div>
-          ) : existingAssetUrl ? (
+          ) : assetUrl ? (
             <div className="space-y-3">
               <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
-                {existingAssetUrl.match(/\.(mp4|webm|mov)$/i) ? (
-                  <VideoPlayerComponent src={existingAssetUrl} />
+                {assetUrl.match(/\.(mp4|webm|mov)$/i) ? (
+                  <VideoPlayerComponent src={assetUrl} />
                 ) : (
                   <img
-                    src={existingAssetUrl}
+                    src={assetUrl}
                     alt="Current campaign asset"
                     className="w-full h-full object-cover"
                   />
@@ -428,7 +550,11 @@ export function CampaignForm({
               <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                 <div className="flex items-center gap-2">
                   <FileImage className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Current asset</span>
+                  <span className="text-sm font-medium">
+                    {existingAssetUrl
+                      ? "Current asset"
+                      : "Inherited from parent campaign"}
+                  </span>
                 </div>
                 <Button
                   type="button"

@@ -7,12 +7,14 @@ type StatusType =
   | "pending"
   | "approved"
   | "rejected"
+  | "reversed"
   | "active"
   | "completed"
   | "processing"
   | "failed"
   | "draft"
-  | "closed";
+  | "closed"
+  | "paused";
 
 const statusConfig: Record<StatusType, { label: string; className: string }> = {
   pending: {
@@ -26,6 +28,10 @@ const statusConfig: Record<StatusType, { label: string; className: string }> = {
   rejected: {
     label: "Rejected",
     className: "bg-red-500/15 text-red-700 dark:text-red-400 border-0",
+  },
+  reversed: {
+    label: "Reversed",
+    className: "bg-gray-500/15 text-gray-700 dark:text-gray-400 border-0",
   },
   active: {
     label: "Active",
@@ -51,6 +57,11 @@ const statusConfig: Record<StatusType, { label: string; className: string }> = {
   closed: {
     label: "Closed",
     className: "bg-gray-500/15 text-gray-700 dark:text-gray-400 border-0",
+  },
+  paused: {
+    label: "Paused",
+    className:
+      "bg-orange-500/15 text-orange-700 dark:text-orange-400 border-0",
   },
 };
 

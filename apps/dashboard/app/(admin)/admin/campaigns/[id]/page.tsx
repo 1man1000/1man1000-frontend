@@ -6,12 +6,12 @@ import { CampaignAssetModal } from "@/components/campaign-asset-modal";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useCampaignsControllerFindOne,
-  useCampaignsControllerUpdate,
+  useCampaignsControllerUpdateStatus,
   useCampaignsControllerDelete,
   useSubmissionsControllerGetCampaignSubmissions,
   getCampaignsControllerFindOneQueryKey,
   getCampaignsControllerFindAllQueryKey,
-  UpdateCampaignDtoStatus,
+  UpdateCampaignStatusDtoStatus,
 } from "@workspace/client";
 import {
   Card,
@@ -44,6 +44,10 @@ import {
   Copy,
   Check,
   AlertTriangle,
+  Pause,
+  Play,
+  OctagonX,
+  GitBranch,
 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -80,9 +84,9 @@ export default function CampaignDetailPage() {
   const campaignId = params.id as string;
   const [showAssetModal, setShowAssetModal] = useState(false);
   const [submissionsPage, setSubmissionsPage] = useState(1);
-  const submissionsLimit = 10;
+  const [submissionsLimit, setSubmissionsLimit] = useState(10);
   const [assignmentsPage, setAssignmentsPage] = useState(1);
-  const assignmentsLimit = 10;
+  const [assignmentsLimit, setAssignmentsLimit] = useState(10);
   const [sortBy, setSortBy] = useState<"submissionDate" | "views">(
     "submissionDate",
   );
@@ -115,7 +119,7 @@ export default function CampaignDetailPage() {
   const submissions = submissionsResponse?.data || [];
   const submissionsMeta = submissionsResponse?.meta;
 
-  const updateMutation = useCampaignsControllerUpdate({
+  const updateMutation = useCampaignsControllerUpdateStatus({
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({
@@ -174,7 +178,7 @@ export default function CampaignDetailPage() {
       await updateMutation.mutateAsync({
         id: campaignId,
         data: {
-          status: UpdateCampaignDtoStatus.approved,
+          status: UpdateCampaignStatusDtoStatus.approved,
           paymentTiers: validTiers as any,
         },
       });
@@ -182,6 +186,19 @@ export default function CampaignDetailPage() {
       setPaymentTiers([{ lowerLimit: "0", upperLimit: "", amount: "" }]);
     } catch (error) {
       console.error("Error approving campaign:", error);
+    }
+  };
+
+  const handleEnd = () => {
+    if (
+      window.confirm(
+        "End this campaign? It will be marked as completed and will no longer accept participation or submissions.",
+      )
+    ) {
+      updateMutation.mutate({
+        id: campaignId,
+        data: { status: UpdateCampaignStatusDtoStatus.completed },
+      });
     }
   };
 
@@ -217,6 +234,7 @@ export default function CampaignDetailPage() {
   }
 
   const c = campaign;
+  const hasSubCampaigns = !!c.subCampaigns?.length;
 
   return (
     <div className="space-y-6">
@@ -261,7 +279,7 @@ export default function CampaignDetailPage() {
                 onClick={() =>
                   updateMutation.mutate({
                     id: campaignId,
-                    data: { status: UpdateCampaignDtoStatus.rejected },
+                    data: { status: UpdateCampaignStatusDtoStatus.rejected },
                   })
                 }
                 disabled={updateMutation.isPending}
@@ -270,6 +288,67 @@ export default function CampaignDetailPage() {
                 Reject
               </Button>
             </>
+          )}
+          {c.status === "approved" && (
+            <>
+              <Button
+                variant="outline"
+                onClick={() =>
+                  updateMutation.mutate({
+                    id: campaignId,
+                    data: { status: UpdateCampaignStatusDtoStatus.paused },
+                  })
+                }
+                disabled={updateMutation.isPending}
+              >
+                <Pause className="h-4 w-4 mr-2" />
+                Pause
+              </Button>
+              <Button
+                variant="outline"
+                className="text-destructive border-destructive hover:bg-destructive/10"
+                onClick={handleEnd}
+                disabled={updateMutation.isPending}
+              >
+                <OctagonX className="h-4 w-4 mr-2" />
+                End Campaign
+              </Button>
+            </>
+          )}
+          {c.status === "paused" && (
+            <>
+              <Button
+                variant="outline"
+                className="text-emerald-600 border-emerald-600 hover:bg-emerald-50"
+                onClick={() =>
+                  updateMutation.mutate({
+                    id: campaignId,
+                    data: { status: UpdateCampaignStatusDtoStatus.approved },
+                  })
+                }
+                disabled={updateMutation.isPending}
+              >
+                <Play className="h-4 w-4 mr-2" />
+                Resume
+              </Button>
+              <Button
+                variant="outline"
+                className="text-destructive border-destructive hover:bg-destructive/10"
+                onClick={handleEnd}
+                disabled={updateMutation.isPending}
+              >
+                <OctagonX className="h-4 w-4 mr-2" />
+                End Campaign
+              </Button>
+            </>
+          )}
+          {!c.parentCampaignId && (
+            <Button variant="outline" asChild>
+              <Link href={`/admin/campaigns/new?parent=${campaignId}`}>
+                <GitBranch className="h-4 w-4 mr-2" />
+                Sub-Campaign
+              </Link>
+            </Button>
           )}
           <Button variant="outline" asChild>
             <Link href={`/admin/campaigns/${campaignId}/edit`}>
@@ -305,6 +384,25 @@ export default function CampaignDetailPage() {
           </AlertDialog>
         </div>
       </div>
+
+      {c.parentCampaign && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="flex items-center gap-3 p-4">
+            <GitBranch className="h-5 w-5 text-primary shrink-0" />
+            <div className="text-sm">
+              <span className="text-muted-foreground">
+                Sub-campaign of{" "}
+              </span>
+              <Link
+                href={`/admin/campaigns/${c.parentCampaign.id}`}
+                className="font-medium text-primary hover:underline"
+              >
+                {c.parentCampaign.title || c.parentCampaign.brandName}
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card>
@@ -383,9 +481,15 @@ export default function CampaignDetailPage() {
             <div className="flex items-center gap-2">
               <Eye className="h-5 w-5 text-cyan-600" />
               <span className="text-2xl font-bold">
-                {(c.totalViews || 0).toLocaleString()}
+                {(c.hierarchyStats?.totalViews ?? c.totalViews ?? 0).toLocaleString()}
               </span>
             </div>
+            {hasSubCampaigns && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Includes {c.subCampaigns!.length} sub-campaign
+                {c.subCampaigns!.length > 1 ? "s" : ""}
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -399,18 +503,74 @@ export default function CampaignDetailPage() {
             <div className="flex items-center gap-2">
               <FileCheck className="h-5 w-5 text-emerald-600" />
               <span className="text-2xl font-bold">
-                {c._count?.submissions || 0}
+                {c.hierarchyStats?.submissions ?? c._count?.submissions ?? 0}
               </span>
             </div>
+            {hasSubCampaigns && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Includes {c.subCampaigns!.length} sub-campaign
+                {c.subCampaigns!.length > 1 ? "s" : ""}
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Sub-campaigns */}
+      {!!c.subCampaigns?.length && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Sub-Campaigns ({c.subCampaigns.length})</CardTitle>
+              <CardDescription>
+                Smaller campaigns feeding into this campaign
+              </CardDescription>
+            </div>
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/admin/campaigns/new?parent=${campaignId}`}>
+                <GitBranch className="h-4 w-4 mr-2" />
+                Create Sub-Campaign
+              </Link>
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y divide-border/60">
+              {c.subCampaigns.map((sub) => (
+                <Link
+                  key={sub.id}
+                  href={`/admin/campaigns/${sub.id}`}
+                  className="flex items-center justify-between py-3 hover:bg-muted/50 -mx-2 px-2 rounded-lg transition-colors"
+                >
+                  <div>
+                    <p className="font-medium">
+                      {sub.title || sub.brandName}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {sub.brandName} · Ends{" "}
+                      {new Date(sub.endDate).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-muted-foreground">
+                      {(sub.totalViews || 0).toLocaleString()} views
+                    </span>
+                    <StatusBadge status={sub.status} />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Submissions Table */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div className="flex items-center gap-4">
-            <CardTitle>Submissions ({c._count?.submissions || 0})</CardTitle>
+            <CardTitle>
+              Submissions (
+              {c.hierarchyStats?.submissions ?? c._count?.submissions ?? 0})
+            </CardTitle>
             <div className="flex items-center gap-2">
               <select
                 value={sortBy}
@@ -435,9 +595,25 @@ export default function CampaignDetailPage() {
               </Button>
             </div>
           </div>
-          {submissionsMeta &&
-            (submissionsMeta as { totalPages?: number }).totalPages! > 1 && (
+          {submissionsMeta && (
               <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mr-2">
+                  <span className="text-sm text-muted-foreground">Rows</span>
+                  <select
+                    value={submissionsLimit}
+                    onChange={(e) => {
+                      setSubmissionsLimit(Number(e.target.value));
+                      setSubmissionsPage(1);
+                    }}
+                    className="text-sm border rounded px-2 py-1.5 bg-background"
+                  >
+                    {[10, 20, 50, 100].map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <Button
                   variant="outline"
                   size="sm"
@@ -489,6 +665,11 @@ export default function CampaignDetailPage() {
                     <th className="text-left py-3 px-2 font-medium text-muted-foreground">
                       Influencer
                     </th>
+                    {hasSubCampaigns && (
+                      <th className="text-left py-3 px-2 font-medium text-muted-foreground">
+                        Campaign
+                      </th>
+                    )}
                     <th className="text-left py-3 px-2 font-medium text-muted-foreground">
                       Submissions
                     </th>
@@ -516,15 +697,24 @@ export default function CampaignDetailPage() {
                     >
                       <td className="py-3 px-2">
                         <div className="flex items-center gap-2">
-                          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center text-white text-xs font-semibold">
-                            {submission.influencer?.name
-                              ?.slice(0, 2)
-                              .toUpperCase() || "??"}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">
+                          <Link
+                            href={
+                              submission.influencer?.id
+                                ? `/admin/users/${submission.influencer.id}`
+                                : "#"
+                            }
+                            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                          >
+                            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center text-white text-xs font-semibold">
+                              {submission.influencer?.name
+                                ?.slice(0, 2)
+                                .toUpperCase() || "??"}
+                            </div>
+                            <span className="font-medium hover:underline">
                               {submission.influencer?.name || "Unknown"}
                             </span>
+                          </Link>
+                          <div className="flex items-center gap-2">
                             {submission.isDuplicate && (
                               <Badge
                                 variant="outline"
@@ -537,6 +727,18 @@ export default function CampaignDetailPage() {
                           </div>
                         </div>
                       </td>
+                      {hasSubCampaigns && (
+                        <td className="py-3 px-2">
+                          <Link
+                            href={`/admin/campaigns/${submission.campaignId}`}
+                            className="text-sm hover:underline"
+                          >
+                            {submission.campaign?.title ||
+                              submission.campaign?.brandName ||
+                              "-"}
+                          </Link>
+                        </td>
+                      )}
                       <td className="py-3 px-2">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium">
@@ -758,15 +960,29 @@ export default function CampaignDetailPage() {
                       key={assignment.id}
                       className="flex items-center gap-3 p-3 rounded-lg bg-muted/30"
                     >
-                      <div className="h-10 w-10 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white text-sm font-semibold">
+                      <Link
+                        href={
+                          assignment.influencer?.id
+                            ? `/admin/users/${assignment.influencer.id}`
+                            : "#"
+                        }
+                        className="h-10 w-10 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white text-sm font-semibold hover:opacity-80 transition-opacity"
+                      >
                         {assignment.influencer?.name
                           ?.slice(0, 2)
                           .toUpperCase() || "??"}
-                      </div>
+                      </Link>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">
+                        <Link
+                          href={
+                            assignment.influencer?.id
+                              ? `/admin/users/${assignment.influencer.id}`
+                              : "#"
+                          }
+                          className="text-sm font-medium truncate block hover:underline"
+                        >
                           {assignment.influencer?.name || "Unknown"}
-                        </p>
+                        </Link>
                         <p className="text-xs text-muted-foreground truncate">
                           {assignment.influencer?.email}
                         </p>
@@ -776,9 +992,25 @@ export default function CampaignDetailPage() {
               </div>
             )}
           </CardContent>
-          {c.assignments &&
-            c.assignments.length > assignmentsLimit && (
+          {c.assignments && c.assignments.length > 0 && (
               <div className="border-t p-4 flex items-center justify-between gap-2 bg-card shrink-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Rows</span>
+                  <select
+                    value={assignmentsLimit}
+                    onChange={(e) => {
+                      setAssignmentsLimit(Number(e.target.value));
+                      setAssignmentsPage(1);
+                    }}
+                    className="text-sm border rounded px-2 py-1.5 bg-background"
+                  >
+                    {[10, 20, 50, 100].map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <Button
                   variant="outline"
                   size="sm"
