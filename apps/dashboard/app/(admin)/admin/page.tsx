@@ -2,6 +2,7 @@
 
 import axios from "axios";
 import { useMemo, useState } from "react";
+import { useUsersControllerGetLeaderboard } from "@workspace/client";
 import {
   Card,
   CardContent,
@@ -110,6 +111,8 @@ export default function AdminDashboard() {
       },
       placeholderData: keepPreviousData,
     });
+
+  const { data: leaderboard } = useUsersControllerGetLeaderboard({ limit: 5 });
 
   if (isLoading) return <LoadingState text="Loading admin dashboard..." />;
 
@@ -388,22 +391,31 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {data.topInfluencers.map((inf, i) => (
+              {(leaderboard?.entries ?? []).map((entry) => (
                 <div
-                  key={`${inf.name}-${i}`}
+                  key={entry.influencerId}
                   className="flex items-center gap-3 p-3 rounded-xl bg-muted/30"
                 >
                   <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 text-white text-sm font-bold shadow-sm">
-                    {i + 1}
+                    {entry.rank}
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-semibold">{inf.name}</p>
+                    <p className="text-sm font-semibold">{entry.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {inf.views.toLocaleString()} views
+                      {entry.totalViews.toLocaleString()} views ·{" "}
+                      {entry.submissionsCount}{" "}
+                      {entry.submissionsCount === 1
+                        ? "submission"
+                        : "submissions"}
                     </p>
                   </div>
                 </div>
               ))}
+              {leaderboard && leaderboard.entries.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No approved submissions yet.
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
