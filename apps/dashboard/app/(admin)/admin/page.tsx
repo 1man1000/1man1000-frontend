@@ -2,6 +2,7 @@
 
 import axios from "axios";
 import { useMemo, useState } from "react";
+import { useUsersControllerGetLeaderboard } from "@workspace/client";
 import {
   Card,
   CardContent,
@@ -18,6 +19,8 @@ import {
   CreditCard,
   TrendingUp,
   Clock,
+  Trophy,
+  Eye,
 } from "lucide-react";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
@@ -110,6 +113,10 @@ export default function AdminDashboard() {
       },
       placeholderData: keepPreviousData,
     });
+
+  const { data: leaderboard } = useUsersControllerGetLeaderboard({
+    limit: 10,
+  });
 
   if (isLoading) return <LoadingState text="Loading admin dashboard..." />;
 
@@ -384,27 +391,68 @@ export default function AdminDashboard() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Top Influencers</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2">
+              <div className="p-2 rounded-xl bg-amber-500/10">
+                <Trophy className="h-5 w-5 text-amber-600" />
+              </div>
+              Leaderboard
+            </CardTitle>
+            <CardDescription>
+              Top influencers ranked by approved views
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {data.topInfluencers.map((inf, i) => (
-                <div
-                  key={`${inf.name}-${i}`}
-                  className="flex items-center gap-3 p-3 rounded-xl bg-muted/30"
-                >
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 text-white text-sm font-bold shadow-sm">
-                    {i + 1}
+            {(leaderboard?.entries || []).length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Trophy className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p className="text-sm">No rankings yet</p>
+              </div>
+            ) : (
+              <div className="max-h-[300px] overflow-y-auto pr-1 space-y-2">
+                {leaderboard!.entries.map((entry) => (
+                  <div
+                    key={entry.influencerId}
+                    className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                  >
+                    <div
+                      className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${
+                        entry.rank === 1
+                          ? "bg-yellow-400 text-yellow-900"
+                          : entry.rank === 2
+                            ? "bg-gray-300 text-gray-700"
+                            : entry.rank === 3
+                              ? "bg-amber-600 text-white"
+                              : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {entry.rank}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {entry.name}
+                      </p>
+                      {entry.publicInfluencerId && (
+                        <p className="text-xs text-muted-foreground truncate">
+                          {entry.publicInfluencerId}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-semibold flex items-center gap-1 justify-end">
+                        <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                        {entry.totalViews.toLocaleString()}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {entry.submissionsCount}{" "}
+                        {entry.submissionsCount === 1
+                          ? "submission"
+                          : "submissions"}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold">{inf.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {inf.views.toLocaleString()} views
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 

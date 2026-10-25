@@ -245,19 +245,28 @@ export default function AdminCampaignsPage() {
               <div className="flex flex-col">
                 <span className="font-medium flex items-center gap-1.5">
                   {(campaign.title || "—") as string}
-                  {campaign.parentCampaignId && (
-                    <span
-                      className="inline-flex items-center gap-1 text-xs font-normal text-primary"
-                      title="Sub-campaign"
-                    >
-                      <GitBranch className="h-3 w-3" />
-                      Sub
-                    </span>
-                  )}
                 </span>
                 <span className="text-sm text-muted-foreground">
                   {campaign.brandName}
                 </span>
+                {campaign.subCampaigns && campaign.subCampaigns.length > 0 && (
+                  <div className="mt-1.5 space-y-0.5">
+                    {campaign.subCampaigns.map((sub) => (
+                      <Link
+                        key={sub.id}
+                        href={`/admin/campaigns/${sub.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-1.5 text-xs text-primary hover:underline"
+                      >
+                        <GitBranch className="h-3 w-3 shrink-0" />
+                        <span>{sub.title || sub.brandName}</span>
+                        <span className="text-muted-foreground">
+                          ({sub.status})
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           },

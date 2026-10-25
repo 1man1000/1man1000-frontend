@@ -186,15 +186,6 @@ export default function ClientCampaignsPage() {
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-lg flex items-center gap-2">
                         {(campaign.title as any) || campaign.brandName}
-                        {campaign.parentCampaignId && (
-                          <span
-                            className="inline-flex items-center gap-1 text-xs font-normal text-primary"
-                            title="Sub-campaign"
-                          >
-                            <GitBranch className="h-3 w-3" />
-                            Sub-campaign
-                          </span>
-                        )}
                       </CardTitle>
                       <StatusBadge status={campaign.status} />
                     </div>
@@ -240,6 +231,28 @@ export default function ClientCampaignsPage() {
                       {new Date(campaign.startDate).toLocaleDateString()} -{" "}
                       {new Date(campaign.endDate).toLocaleDateString()}
                     </div>
+
+                    {campaign.subCampaigns &&
+                      campaign.subCampaigns.length > 0 && (
+                        <div className="rounded-md border bg-muted/30 p-2.5 space-y-1">
+                          <p className="text-xs font-medium text-muted-foreground">
+                            Sub-campaigns ({campaign.subCampaigns.length})
+                          </p>
+                          {campaign.subCampaigns.map((sub) => (
+                            <Link
+                              key={sub.id}
+                              href={`/client/campaigns/${sub.id}`}
+                              className="flex items-center gap-1.5 text-xs text-primary hover:underline"
+                            >
+                              <GitBranch className="h-3 w-3 shrink-0" />
+                              <span>{sub.title || sub.brandName}</span>
+                              <span className="text-muted-foreground">
+                                ({sub.status})
+                              </span>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
 
                     <div className="flex gap-2 pt-2">
                       <Button
