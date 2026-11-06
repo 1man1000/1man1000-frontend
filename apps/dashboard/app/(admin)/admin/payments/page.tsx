@@ -205,6 +205,7 @@ export default function AdminPaymentsPage() {
 
   const { data: campaignsResponse } = useCampaignsControllerFindAll({
     limit: 100,
+    includeSubCampaigns: true,
   });
   const campaigns = campaignsResponse?.data || [];
 
@@ -402,6 +403,7 @@ export default function AdminPaymentsPage() {
             <option value="">All Campaigns</option>
             {campaigns.map((campaign) => (
               <option key={campaign.id} value={campaign.id}>
+                {campaign.parentCampaignId ? "↳ " : ""}
                 {(campaign.title as unknown as string) || campaign.brandName}
               </option>
             ))}

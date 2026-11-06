@@ -6,7 +6,9 @@ import {
   useSubmissionsControllerFindAll,
   useSubmissionsControllerReview,
   useSubmissionsControllerGetStats,
+  useSubmissionsControllerMove,
   useSubmissionsControllerReverseApproval,
+  useCampaignsControllerFindAll,
   getSubmissionsControllerFindAllQueryKey,
   getSubmissionsControllerGetStatsQueryKey,
   ReviewSubmissionDtoApprovalStatus,
@@ -50,6 +52,7 @@ import {
   Loader2,
   RotateCcw,
   AlertTriangle,
+  FolderInput,
 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -80,6 +83,7 @@ interface SubmissionListItemProps {
   item: Submission;
   onApprove: (submission: Submission) => void;
   onReject: (submission: Submission) => void;
+  onMove: (submission: Submission) => void;
   onReverseApproval: (submission: Submission) => void;
   onViewScreenshot: (submission: Submission) => void;
   isPending: boolean;
@@ -89,6 +93,7 @@ function SubmissionListItem({
   item: submission,
   onApprove,
   onReject,
+  onMove,
   onReverseApproval,
   onViewScreenshot,
   isPending,
@@ -212,6 +217,16 @@ function SubmissionListItem({
                 <XCircle className="mr-1 h-4 w-4" />
                 Reject
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onMove(submission)}
+                disabled={isPending}
+                title="Move to another campaign"
+              >
+                <FolderInput className="mr-1 h-4 w-4" />
+                Move
+              </Button>
             </>
           )}
           {submission.approvalStatus === "approved" && (
@@ -262,6 +277,11 @@ export default function AdminSubmissionsPage() {
     useState<Submission | null>(null);
   const [reversingSubmission, setReversingSubmission] =
     useState<Submission | null>(null);
+  const [movingSubmission, setMovingSubmission] = useState<Submission | null>(
+    null,
+  );
+  const [moveTargetId, setMoveTargetId] = useState("");
+  const [moveError, setMoveError] = useState<string | null>(null);
   const [viewingScreenshot, setViewingScreenshot] = useState<Submission | null>(
     null,
   );
@@ -302,6 +322,33 @@ export default function AdminSubmissionsPage() {
         setApprovingSubmission(null);
         setReviewNote("");
         setVerifiedViews("");
+      },
+    },
+  });
+
+  const { data: campaignsResponse } = useCampaignsControllerFindAll({
+    limit: 100,
+    includeSubCampaigns: true,
+  });
+  const moveTargets = campaignsResponse?.data || [];
+
+  const moveMutation = useSubmissionsControllerMove({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: getSubmissionsControllerFindAllQueryKey(),
+        });
+        queryClient.invalidateQueries({
+          queryKey: getSubmissionsControllerGetStatsQueryKey(),
+        });
+        setMovingSubmission(null);
+        setMoveTargetId("");
+        setMoveError(null);
+      },
+      onError: (error: any) => {
+        setMoveError(
+          error?.response?.data?.message || "Failed to move submission",
+        );
       },
     },
   });
@@ -356,6 +403,20 @@ export default function AdminSubmissionsPage() {
 
   const handleReject = (submission: Submission) => {
     setReviewingSubmission(submission);
+  };
+
+  const handleMove = (submission: Submission) => {
+    setMovingSubmission(submission);
+    setMoveTargetId("");
+    setMoveError(null);
+  };
+
+  const confirmMove = () => {
+    if (!movingSubmission || !moveTargetId) return;
+    moveMutation.mutate({
+      id: movingSubmission.id,
+      data: { campaignId: moveTargetId },
+    });
   };
 
   const handleViewScreenshot = (submission: Submission) => {
@@ -503,6 +564,7 @@ export default function AdminSubmissionsPage() {
                     {...props}
                     onApprove={handleApprove}
                     onReject={handleReject}
+                    onMove={handleMove}
                     onReverseApproval={handleReverseApproval}
                     onViewScreenshot={handleViewScreenshot}
                     isPending={
@@ -630,6 +692,80 @@ export default function AdminSubmissionsPage() {
                 <CheckCircle className="h-4 w-4 mr-2" />
               )}
               Approve Submission
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!movingSubmission}
+        onOpenChange={(open) => {
+          if (!open) {
+            setMovingSubmission(null);
+            setMoveTargetId("");
+            setMoveError(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Move Submission</DialogTitle>
+            <DialogDescription>
+              Move {movingSubmission?.influencer?.name || "this influencer"}
+              &apos;s submission from &quot;
+              {movingSubmission?.campaign?.title ||
+                movingSubmission?.campaign?.brandName}
+              &quot; to another campaign.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="moveTarget">Move to campaign</Label>
+              <select
+                id="moveTarget"
+                value={moveTargetId}
+                onChange={(e) => {
+                  setMoveTargetId(e.target.value);
+                  setMoveError(null);
+                }}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Select a campaign…</option>
+                {moveTargets
+                  .filter((c) => c.id !== movingSubmission?.campaignId)
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.parentCampaignId ? "↳ " : ""}
+                      {(c.title as unknown as string) || c.brandName}
+                    </option>
+                  ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                The influencer will be notified that their submission was
+                moved.
+              </p>
+            </div>
+            {moveError && (
+              <p className="text-sm text-destructive">{moveError}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setMovingSubmission(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmMove}
+              disabled={!moveTargetId || moveMutation.isPending}
+            >
+              {moveMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <FolderInput className="h-4 w-4 mr-2" />
+              )}
+              Move Submission
             </Button>
           </DialogFooter>
         </DialogContent>
