@@ -58,15 +58,13 @@ export default function ClientDashboard() {
       color: "text-orange-600",
     },
     {
-      title: "Conversion Rate",
-      value: data.stats.conversionRate,
+      title: "Total Campaigns",
+      value: data.stats.totalCampaigns.toString(),
       icon: TrendingUp,
       color: "text-purple-600",
     },
   ];
 
-  const totalCampaigns = data.stats.totalCampaigns;
-  console.log(totalCampaigns, "totalCampaigns");
   const activeCampaigns = data.stats.activeCampaigns;
   const totalViews = data.stats.totalViews;
   const totalSubmissions = data.stats.submissions;
@@ -80,27 +78,20 @@ export default function ClientDashboard() {
       maximumFractionDigits: 2,
     }).format(amount);
 
+  // Cost per view is typically a fraction of a cedi — needs more precision
+  const formatCpv = (amount: number) =>
+    new Intl.NumberFormat("en-GH", {
+      style: "currency",
+      currency: "GHS",
+      minimumFractionDigits: 4,
+      maximumFractionDigits: 4,
+    }).format(amount);
+
   const avgViewsPerSubmission =
     totalSubmissions > 0 ? Math.round(totalViews / totalSubmissions) : null;
 
   const viewsPerActiveCampaign =
     activeCampaigns > 0 ? Math.round(totalViews / activeCampaigns) : null;
-
-  const activeCampaignRate =
-    typeof totalCampaigns === "number" && totalCampaigns > 0
-      ? Math.round((activeCampaigns / totalCampaigns) * 100)
-      : null;
-
-  const avgCampaignProgress =
-    data.recentCampaigns.length > 0
-      ? Math.round(
-          data.recentCampaigns.reduce((sum, campaign) => {
-            const targetMax = (campaign.targetViewRange?.max || 1) as number;
-            const progress = (campaign.totalViews / targetMax) * 100;
-            return sum + Math.min(progress, 100);
-          }, 0) / data.recentCampaigns.length,
-        )
-      : null;
 
   const submissionsPer1kViews =
     totalViews > 0 ? Math.round((totalSubmissions / totalViews) * 1000) : null;
@@ -179,12 +170,14 @@ export default function ClientDashboard() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Active Campaign Rate
+              Campaign Investment
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {activeCampaignRate === null ? "—" : `${activeCampaignRate}%`}
+              {campaignInvestment === null
+                ? "—"
+                : formatGhs(campaignInvestment)}
             </div>
           </CardContent>
         </Card>
@@ -192,12 +185,12 @@ export default function ClientDashboard() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Avg Campaign Progress
+              Cost / View
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {avgCampaignProgress === null ? "—" : `${avgCampaignProgress}%`}
+              {costPerView === null ? "—" : formatCpv(costPerView)}
             </div>
           </CardContent>
         </Card>
@@ -235,63 +228,6 @@ export default function ClientDashboard() {
                 </span>
                 <span className="text-sm font-medium">
                   {data.recentSubmissions.length}
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>ROI Overview</CardTitle>
-            <CardDescription>
-              High-level investment and reach (ROI requires spend/value inputs)
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">
-                  Campaign Investment
-                </span>
-                <span className="text-sm font-medium">
-                  {campaignInvestment === null
-                    ? "—"
-                    : formatGhs(campaignInvestment)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">
-                  Total Reach (Views)
-                </span>
-                <span className="text-sm font-medium">
-                  {totalViews.toLocaleString()}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">
-                  Cost / View
-                </span>
-                <span className="text-sm font-medium">
-                  {costPerView === null ? "—" : formatGhs(costPerView)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">
-                  Total Submissions
-                </span>
-                <span className="text-sm font-medium">
-                  {totalSubmissions.toLocaleString()}
-                </span>
-              </div>
-              <div className="flex items-center justify-between border-t pt-2">
-                <span className="text-sm font-medium">
-                  Efficiency (Views / Submission)
-                </span>
-                <span className="text-sm font-semibold">
-                  {avgViewsPerSubmission === null
-                    ? "—"
-                    : avgViewsPerSubmission.toLocaleString()}
                 </span>
               </div>
             </div>

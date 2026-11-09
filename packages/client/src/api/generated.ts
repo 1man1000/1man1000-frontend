@@ -1163,6 +1163,11 @@ export interface ReviewSubmissionDto {
   reviewNotes?: string;
 }
 
+export interface MoveSubmissionDto {
+  /** Campaign to move this submission into */
+  campaignId: string;
+}
+
 export interface ReverseApprovalDto {
   /** Reason for reversing the approval */
   reason?: string;
@@ -1820,6 +1825,10 @@ limit?: number;
 export type CampaignsControllerFindAllParams = {
 status?: CampaignsControllerFindAllStatus;
 clientId?: string;
+/**
+ * Include sub-campaigns as top-level rows (default: false)
+ */
+includeSubCampaigns?: boolean;
 /**
  * @minimum 1
  */
@@ -6400,6 +6409,71 @@ export const useSubmissionsControllerReview = <TError = void,
       > => {
 
       const mutationOptions = getSubmissionsControllerReviewMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    
+/**
+ * @summary Move a pending submission to a different campaign (Admin only)
+ */
+export const submissionsControllerMove = (
+    id: string,
+    moveSubmissionDto: MoveSubmissionDto,
+ ) => {
+      
+      
+      return axiosInstance<SubmissionResponseDto>(
+      {url: `/api/submissions/${id}/move`, method: 'PATCH',
+      headers: {'Content-Type': 'application/json', },
+      data: moveSubmissionDto
+    },
+      );
+    }
+  
+
+
+export const getSubmissionsControllerMoveMutationOptions = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submissionsControllerMove>>, TError,{id: string;data: MoveSubmissionDto}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof submissionsControllerMove>>, TError,{id: string;data: MoveSubmissionDto}, TContext> => {
+
+const mutationKey = ['submissionsControllerMove'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submissionsControllerMove>>, {id: string;data: MoveSubmissionDto}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  submissionsControllerMove(id,data,)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmissionsControllerMoveMutationResult = NonNullable<Awaited<ReturnType<typeof submissionsControllerMove>>>
+    export type SubmissionsControllerMoveMutationBody = MoveSubmissionDto
+    export type SubmissionsControllerMoveMutationError = void
+
+    /**
+ * @summary Move a pending submission to a different campaign (Admin only)
+ */
+export const useSubmissionsControllerMove = <TError = void,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submissionsControllerMove>>, TError,{id: string;data: MoveSubmissionDto}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof submissionsControllerMove>>,
+        TError,
+        {id: string;data: MoveSubmissionDto},
+        TContext
+      > => {
+
+      const mutationOptions = getSubmissionsControllerMoveMutationOptions(options);
 
       return useMutation(mutationOptions, queryClient);
     }
