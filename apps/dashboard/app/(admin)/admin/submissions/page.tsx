@@ -58,6 +58,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { ListPaginationWrapper } from "@/components/ui/list-pagination-wrapper";
+import { CampaignCombobox } from "@/components/campaign-combobox";
 import Image from "next/image";
 import Link from "next/link";
 import { downloadCampaignAsset } from "@/lib/services/downloadService";
@@ -721,25 +722,18 @@ export default function AdminSubmissionsPage() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="moveTarget">Move to campaign</Label>
-              <select
-                id="moveTarget"
+              <CampaignCombobox
+                modal
+                campaigns={moveTargets.filter(
+                  (c) => c.id !== movingSubmission?.campaignId,
+                )}
                 value={moveTargetId}
-                onChange={(e) => {
-                  setMoveTargetId(e.target.value);
+                onChange={(id) => {
+                  setMoveTargetId(id);
                   setMoveError(null);
                 }}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                <option value="">Select a campaign…</option>
-                {moveTargets
-                  .filter((c) => c.id !== movingSubmission?.campaignId)
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.parentCampaignId ? "↳ " : ""}
-                      {(c.title as unknown as string) || c.brandName}
-                    </option>
-                  ))}
-              </select>
+                placeholder="Select a campaign…"
+              />
               <p className="text-xs text-muted-foreground">
                 The influencer will be notified that their submission was
                 moved.

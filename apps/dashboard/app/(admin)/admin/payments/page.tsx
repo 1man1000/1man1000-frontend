@@ -61,6 +61,7 @@ import {
   CheckCheck,
 } from "lucide-react";
 import { ErrorState } from "@/components/ui/error-state";
+import { CampaignCombobox } from "@/components/campaign-combobox";
 import { ListPaginationWrapper } from "@/components/ui/list-pagination-wrapper";
 
 const statusColors = {
@@ -392,22 +393,17 @@ export default function AdminPaymentsPage() {
           />
         </div>
         <div className="flex items-center gap-2">
-          <select
+          <CampaignCombobox
+            campaigns={campaigns}
             value={campaignId}
-            onChange={(e) => {
-              setCampaignId(e.target.value);
+            onChange={(id) => {
+              setCampaignId(id);
               setPage(1);
             }}
-            className="text-sm border rounded px-3 py-2 bg-background"
-          >
-            <option value="">All Campaigns</option>
-            {campaigns.map((campaign) => (
-              <option key={campaign.id} value={campaign.id}>
-                {campaign.parentCampaignId ? "↳ " : ""}
-                {(campaign.title as unknown as string) || campaign.brandName}
-              </option>
-            ))}
-          </select>
+            allLabel="All Campaigns"
+            placeholder="Filter by campaign..."
+            className="w-[220px] text-sm"
+          />
           <select
             value={sortBy}
             onChange={(e) => {
