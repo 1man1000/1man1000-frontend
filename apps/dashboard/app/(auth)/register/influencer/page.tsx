@@ -17,6 +17,7 @@ import { Alert, AlertDescription } from "@workspace/ui/components/alert";
 import {
   useAuthControllerRegister,
   useAuthControllerVerifyEmail,
+  useAuthControllerVerifyPhone,
   useAuthControllerLogin,
   useAuthControllerResendVerificationCode,
 } from "@workspace/client";
@@ -27,9 +28,11 @@ import {
   Eye,
   EyeOff,
   Mail,
+  Smartphone,
   CheckCircle2,
 } from "lucide-react";
 import { VerificationCodeInput } from "@/components/verification-code-input";
+import { GoogleSignInButton } from "@/components/auth/social-buttons";
 import Image from "next/image";
 
 type RegisterResponse = {
@@ -37,7 +40,11 @@ type RegisterResponse = {
   user: User;
 };
 
-type RegistrationStep = "form" | "verify-email" | "complete";
+type RegistrationStep =
+  | "form"
+  | "verify-email"
+  | "verify-phone"
+  | "complete";
 
 export default function RegisterInfluencerPage() {
   const router = useRouter();
@@ -51,6 +58,7 @@ export default function RegisterInfluencerPage() {
     confirmPassword: "",
   });
   const [emailCode, setEmailCode] = useState("");
+  const [phoneCode, setPhoneCode] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
@@ -71,6 +79,19 @@ export default function RegisterInfluencerPage() {
   });
 
   const verifyEmailMutation = useAuthControllerVerifyEmail({
+    mutation: {
+      onSuccess: () => {
+        setIsLoading(false);
+        setStep("verify-phone");
+      },
+      onError: (error: any) => {
+        setError(error?.response?.data?.message || "Invalid verification code");
+        setIsLoading(false);
+      },
+    },
+  });
+
+  const verifyPhoneMutation = useAuthControllerVerifyPhone({
     mutation: {
       onSuccess: () => {
         loginMutation.mutate({
@@ -155,6 +176,23 @@ export default function RegisterInfluencerPage() {
       data: {
         email: formData.email,
         code: emailCode,
+      },
+    });
+  };
+
+  const handleVerifyPhone = () => {
+    if (phoneCode.length !== 6) {
+      setError("Please enter the 6-digit code");
+      return;
+    }
+
+    setIsLoading(true);
+    setError("");
+
+    verifyPhoneMutation.mutate({
+      data: {
+        phone: formData.phone,
+        code: phoneCode,
       },
     });
   };
@@ -283,6 +321,72 @@ export default function RegisterInfluencerPage() {
     );
   }
 
+  // Phone verification screen
+  if (step === "verify-phone") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4 py-8">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center space-y-4">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Smartphone className="h-8 w-8" />
+            </div>
+            <CardTitle className="text-2xl">Verify Your Phone</CardTitle>
+            <CardDescription>
+              We&apos;ve sent a 6-digit verification code to
+              <br />
+              <strong>{formData.phone}</strong>
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="space-y-4">
+              <Label className="text-center block">
+                Enter verification code
+              </Label>
+              <VerificationCodeInput
+                value={phoneCode}
+                onChange={setPhoneCode}
+                disabled={isLoading}
+                error={!!error}
+              />
+            </div>
+
+            <Button
+              onClick={handleVerifyPhone}
+              className="w-full"
+              disabled={isLoading || phoneCode.length !== 6}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Verifying...
+                </>
+              ) : (
+                "Verify Phone & Complete"
+              )}
+            </Button>
+
+            <div className="text-center text-sm">
+              <button
+                type="button"
+                onClick={() => handleResendCode("phone")}
+                disabled={isLoading}
+                className="text-primary hover:underline disabled:opacity-50"
+              >
+                Resend code
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   // Registration form (default step)
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4 py-8">
@@ -336,6 +440,10 @@ export default function RegisterInfluencerPage() {
                   required
                   disabled={isLoading}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Please use your full legal name (first and last name), not a
+                  nickname.
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -447,6 +555,10 @@ export default function RegisterInfluencerPage() {
               )}
             </Button>
           </form>
+
+          <div className="mt-4">
+            <GoogleSignInButton role="influencer" />
+          </div>
 
           <div className="mt-6 text-center text-sm space-y-2">
             <p className="text-muted-foreground">

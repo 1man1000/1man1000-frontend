@@ -1,9 +1,11 @@
 "use client";
 
 import { useParams } from "next/navigation";
+import { useState } from "react";
 import {
   useSurveysControllerFindOne,
   useSurveysControllerUpdateStatus,
+  useSurveysControllerUpdatePayment,
   UpdateSurveyStatusDtoStatus,
 } from "@workspace/client";
 import {
@@ -21,7 +23,21 @@ import {
   BarChart3,
   CheckCircle,
   XCircle,
+  Pencil,
+  Pause,
+  Play,
+  OctagonX,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@workspace/ui/components/dialog";
+import { Input } from "@workspace/ui/components/input";
+import { Label } from "@workspace/ui/components/label";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
 import Link from "next/link";
@@ -85,6 +101,38 @@ export default function AdminSurveyDetailPage() {
     },
   });
 
+  const updatePaymentMutation = useSurveysControllerUpdatePayment();
+  const [priceOpen, setPriceOpen] = useState(false);
+  const [priceValue, setPriceValue] = useState("");
+  const [priceError, setPriceError] = useState("");
+
+  const openPriceDialog = () => {
+    setPriceValue((survey?.paymentPerResponse ?? 0).toString());
+    setPriceError("");
+    setPriceOpen(true);
+  };
+
+  const handleSavePrice = async () => {
+    const amount = parseFloat(priceValue);
+    if (isNaN(amount) || amount < 0) {
+      setPriceError("Enter a valid amount");
+      return;
+    }
+    try {
+      await updatePaymentMutation.mutateAsync({
+        id: surveyId,
+        data: { paymentPerResponse: amount },
+      });
+      setPriceOpen(false);
+      setPriceError("");
+      refetch();
+    } catch (error: any) {
+      setPriceError(
+        error?.response?.data?.message || "Failed to update payment price",
+      );
+    }
+  };
+
   const handleApprove = async () => {
     if (window.confirm("Are you sure you want to approve this survey?")) {
       try {
@@ -107,6 +155,51 @@ export default function AdminSurveyDetailPage() {
         });
       } catch (error) {
         console.error("Error rejecting survey:", error);
+      }
+    }
+  };
+
+  const handlePause = async () => {
+    if (
+      window.confirm(
+        "Pause this survey? It will stop accepting responses until resumed.",
+      )
+    ) {
+      try {
+        await updateStatusMutation.mutateAsync({
+          id: surveyId,
+          data: { status: UpdateSurveyStatusDtoStatus.paused },
+        });
+      } catch (error) {
+        console.error("Error pausing survey:", error);
+      }
+    }
+  };
+
+  const handleResume = async () => {
+    try {
+      await updateStatusMutation.mutateAsync({
+        id: surveyId,
+        data: { status: UpdateSurveyStatusDtoStatus.approved },
+      });
+    } catch (error) {
+      console.error("Error resuming survey:", error);
+    }
+  };
+
+  const handleEnd = async () => {
+    if (
+      window.confirm(
+        "End this survey? It will be closed permanently and stop accepting responses.",
+      )
+    ) {
+      try {
+        await updateStatusMutation.mutateAsync({
+          id: surveyId,
+          data: { status: UpdateSurveyStatusDtoStatus.closed },
+        });
+      } catch (error) {
+        console.error("Error ending survey:", error);
       }
     }
   };
@@ -181,6 +274,49 @@ export default function AdminSurveyDetailPage() {
               </Button>
             </>
           )}
+          {(survey.status === "approved" || survey.status === "active") && (
+            <>
+              <Button
+                variant="outline"
+                onClick={handlePause}
+                disabled={updateStatusMutation.isPending}
+              >
+                <Pause className="h-4 w-4 mr-2" />
+                Pause
+              </Button>
+              <Button
+                variant="outline"
+                className="text-destructive border-destructive hover:bg-destructive/10"
+                onClick={handleEnd}
+                disabled={updateStatusMutation.isPending}
+              >
+                <OctagonX className="h-4 w-4 mr-2" />
+                End Survey
+              </Button>
+            </>
+          )}
+          {survey.status === "paused" && (
+            <>
+              <Button
+                variant="outline"
+                className="text-emerald-600 border-emerald-600 hover:bg-emerald-50"
+                onClick={handleResume}
+                disabled={updateStatusMutation.isPending}
+              >
+                <Play className="h-4 w-4 mr-2" />
+                Resume
+              </Button>
+              <Button
+                variant="outline"
+                className="text-destructive border-destructive hover:bg-destructive/10"
+                onClick={handleEnd}
+                disabled={updateStatusMutation.isPending}
+              >
+                <OctagonX className="h-4 w-4 mr-2" />
+                End Survey
+              </Button>
+            </>
+          )}
           {survey.responsesCollected > 0 && (
             <Button variant="outline" asChild>
               <Link href={`/admin/surveys/${surveyId}/analytics`}>
@@ -234,10 +370,18 @@ export default function AdminSurveyDetailPage() {
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Payment Per Response
             </CardTitle>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={openPriceDialog}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
@@ -355,6 +499,49 @@ export default function AdminSurveyDetailPage() {
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={priceOpen} onOpenChange={setPriceOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Set payment price</DialogTitle>
+            <DialogDescription>
+              Amount paid to an influencer per completed response for &quot;
+              {survey.title}&quot;.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="payment-per-response">
+              Payment per response (GH₵)
+            </Label>
+            <Input
+              id="payment-per-response"
+              type="number"
+              min="0"
+              step="0.01"
+              value={priceValue}
+              onChange={(e) => setPriceValue(e.target.value)}
+            />
+            {priceError && (
+              <p className="text-sm text-destructive">{priceError}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={updatePaymentMutation.isPending}
+              onClick={() => setPriceOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSavePrice}
+              disabled={updatePaymentMutation.isPending}
+            >
+              {updatePaymentMutation.isPending ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

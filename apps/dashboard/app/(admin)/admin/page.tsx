@@ -1,6 +1,8 @@
 "use client";
 
 import axios from "axios";
+import { useMemo, useState } from "react";
+import { useUsersControllerGetLeaderboard } from "@workspace/client";
 import {
   Card,
   CardContent,
@@ -9,7 +11,7 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card";
 import { Badge } from "@workspace/ui/components/badge";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   Users,
   Megaphone,
@@ -17,6 +19,8 @@ import {
   CreditCard,
   TrendingUp,
   Clock,
+  Trophy,
+  Eye,
 } from "lucide-react";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
@@ -58,17 +62,61 @@ type AdminDashboardResponse = {
   userGrowth: Array<{ date: string; users: number }>;
 };
 
+const GROWTH_RANGE_OPTIONS = [
+  { value: "7", label: "Last 7 days" },
+  { value: "30", label: "Last 30 days" },
+  { value: "90", label: "Last 90 days" },
+  { value: "365", label: "Last year" },
+  { value: "custom", label: "Custom range" },
+];
+
+function toDateInputValue(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
 export default function AdminDashboard() {
+  const [growthRange, setGrowthRange] = useState("30");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+
+  const { startDate, endDate, rangeLabel } = useMemo(() => {
+    if (growthRange === "custom") {
+      return {
+        startDate: customStart || undefined,
+        endDate: customEnd || undefined,
+        rangeLabel: "for the selected range",
+      };
+    }
+    const days = parseInt(growthRange, 10);
+    const end = new Date();
+    const start = new Date(end);
+    start.setDate(start.getDate() - (days - 1));
+    return {
+      startDate: toDateInputValue(start),
+      endDate: toDateInputValue(end),
+      rangeLabel:
+        growthRange === "365"
+          ? "over the last year"
+          : `over the last ${days} days`,
+    };
+  }, [growthRange, customStart, customEnd]);
+
   const { data, isLoading, isError, refetch } =
     useQuery<AdminDashboardResponse>({
-      queryKey: ["adminDashboard"],
+      queryKey: ["adminDashboard", startDate, endDate],
       queryFn: async () => {
         const res = await axios.get<AdminDashboardResponse>(
           "/api/admin/dashboard",
+          { params: { startDate, endDate } },
         );
         return res.data;
       },
+      placeholderData: keepPreviousData,
     });
+
+  const { data: leaderboard } = useUsersControllerGetLeaderboard({
+    limit: 10,
+  });
 
   if (isLoading) return <LoadingState text="Loading admin dashboard..." />;
 
@@ -168,15 +216,50 @@ export default function AdminDashboard() {
 
       <div className="grid gap-5 md:grid-cols-2">
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <div className="p-2 rounded-xl bg-primary/10">
-                <TrendingUp className="h-5 w-5 text-primary" />
+          <CardHeader className="space-y-3">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <CardTitle className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-primary/10">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                </div>
+                Platform Growth
+              </CardTitle>
+              <select
+                value={growthRange}
+                onChange={(e) => setGrowthRange(e.target.value)}
+                className="text-sm border rounded-md px-2 py-1.5 bg-background"
+              >
+                {GROWTH_RANGE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {growthRange === "custom" && (
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={customStart}
+                  max={customEnd || toDateInputValue(new Date())}
+                  onChange={(e) => setCustomStart(e.target.value)}
+                  className="text-sm border rounded-md px-2 py-1.5 bg-background w-full"
+                  aria-label="Start date"
+                />
+                <span className="text-sm text-muted-foreground">to</span>
+                <input
+                  type="date"
+                  value={customEnd}
+                  min={customStart || undefined}
+                  max={toDateInputValue(new Date())}
+                  onChange={(e) => setCustomEnd(e.target.value)}
+                  className="text-sm border rounded-md px-2 py-1.5 bg-background w-full"
+                  aria-label="End date"
+                />
               </div>
-              Platform Growth
-            </CardTitle>
+            )}
             <CardDescription>
-              User registrations over the last 30 days
+              User registrations {rangeLabel}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -308,27 +391,68 @@ export default function AdminDashboard() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Top Influencers</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2">
+              <div className="p-2 rounded-xl bg-amber-500/10">
+                <Trophy className="h-5 w-5 text-amber-600" />
+              </div>
+              Leaderboard
+            </CardTitle>
+            <CardDescription>
+              Top influencers ranked by approved views
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {data.topInfluencers.map((inf, i) => (
-                <div
-                  key={`${inf.name}-${i}`}
-                  className="flex items-center gap-3 p-3 rounded-xl bg-muted/30"
-                >
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 text-white text-sm font-bold shadow-sm">
-                    {i + 1}
+            {(leaderboard?.entries || []).length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Trophy className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p className="text-sm">No rankings yet</p>
+              </div>
+            ) : (
+              <div className="max-h-[300px] overflow-y-auto pr-1 space-y-2">
+                {leaderboard!.entries.map((entry) => (
+                  <div
+                    key={entry.influencerId}
+                    className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                  >
+                    <div
+                      className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${
+                        entry.rank === 1
+                          ? "bg-yellow-400 text-yellow-900"
+                          : entry.rank === 2
+                            ? "bg-gray-300 text-gray-700"
+                            : entry.rank === 3
+                              ? "bg-amber-600 text-white"
+                              : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {entry.rank}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {entry.name}
+                      </p>
+                      {entry.publicInfluencerId && (
+                        <p className="text-xs text-muted-foreground truncate">
+                          {entry.publicInfluencerId}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-semibold flex items-center gap-1 justify-end">
+                        <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                        {entry.totalViews.toLocaleString()}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {entry.submissionsCount}{" "}
+                        {entry.submissionsCount === 1
+                          ? "submission"
+                          : "submissions"}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold">{inf.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {inf.views.toLocaleString()} views
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 

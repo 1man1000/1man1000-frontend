@@ -1,6 +1,15 @@
 import axios from "axios";
+import { useAuthStore } from "@/lib/auth-store";
 
 export const api = axios;
+
+function forceLogout() {
+  if (typeof window === "undefined") return;
+  useAuthStore.getState().logout();
+  if (!window.location.pathname.startsWith("/login")) {
+    window.location.href = "/login";
+  }
+}
 
 export function initializeApi() {
   // Set base URL for all axios requests
@@ -21,4 +30,15 @@ export function initializeApi() {
     }
     return config;
   });
+
+  // Auto-logout whenever the API rejects with 401 (expired or invalid token)
+  axios.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      if (error.response?.status === 401) {
+        forceLogout();
+      }
+      return Promise.reject(error);
+    },
+  );
 }

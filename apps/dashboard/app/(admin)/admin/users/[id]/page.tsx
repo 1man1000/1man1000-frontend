@@ -1,10 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useUsersControllerFindOne,
   useUsersControllerUpdateStatus,
+  useUsersControllerFlagUser,
+  useUsersControllerUnflagUser,
+  useAdminControllerGetInfluencerOverview,
   getUsersControllerFindAllQueryKey,
   getUsersControllerFindOneQueryKey,
   UpdateUserStatusDtoStatus,
@@ -12,11 +16,14 @@ import {
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card";
 import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
+import { Label } from "@workspace/ui/components/label";
+import { Textarea } from "@workspace/ui/components/textarea";
 import { Separator } from "@workspace/ui/components/separator";
 import {
   ArrowLeft,
@@ -30,7 +37,24 @@ import {
   GraduationCap,
   Briefcase,
   Wallet,
+  Eye,
+  CreditCard,
+  Megaphone,
+  FileImage,
+  ClipboardList,
+  Flag,
+  FlagOff,
+  Loader2,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@workspace/ui/components/dialog";
+
 import Link from "next/link";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
@@ -48,6 +72,60 @@ const FieldRow = ({ label, value }: { label: string; value?: string }) => {
   );
 };
 
+const PaginationBar = ({
+  page,
+  totalPages,
+  limit,
+  limitOptions,
+  onPageChange,
+  onLimitChange,
+}: {
+  page: number;
+  totalPages: number;
+  limit: number;
+  limitOptions: number[];
+  onPageChange: (page: number) => void;
+  onLimitChange: (limit: number) => void;
+}) => (
+  <div className="flex items-center justify-between gap-2 pt-4 mt-4 border-t">
+    <div className="flex items-center gap-2">
+      <span className="text-sm text-muted-foreground">Rows</span>
+      <select
+        value={limit}
+        onChange={(e) => onLimitChange(Number(e.target.value))}
+        className="text-sm border rounded px-2 py-1.5 bg-background"
+      >
+        {limitOptions.map((n) => (
+          <option key={n} value={n}>
+            {n}
+          </option>
+        ))}
+      </select>
+    </div>
+    <div className="flex items-center gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => onPageChange(page - 1)}
+        disabled={page === 1}
+      >
+        Previous
+      </Button>
+      <span className="text-sm text-muted-foreground">
+        Page {page} of {totalPages}
+      </span>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => onPageChange(page + 1)}
+        disabled={page === totalPages}
+      >
+        Next
+      </Button>
+    </div>
+  </div>
+);
+
 export default function AdminUserDetailPage() {
   const params = useParams();
   const queryClient = useQueryClient();
@@ -56,6 +134,25 @@ export default function AdminUserDetailPage() {
   const { data, isLoading, isError, refetch } =
     useUsersControllerFindOne(userId);
   const user = data;
+
+  const { data: overview } = useAdminControllerGetInfluencerOverview(userId, {
+    query: { enabled: user?.role === "influencer" },
+  });
+
+  const [viewingScreenshot, setViewingScreenshot] = useState<{
+    url: string;
+    campaignName: string;
+  } | null>(null);
+
+  const [submissionsPage, setSubmissionsPage] = useState(1);
+  const [submissionsLimit, setSubmissionsLimit] = useState(8);
+  const [campaignsPage, setCampaignsPage] = useState(1);
+  const [campaignsLimit, setCampaignsLimit] = useState(5);
+  const [paymentsPage, setPaymentsPage] = useState(1);
+  const [paymentsLimit, setPaymentsLimit] = useState(5);
+  const [flagDialogOpen, setFlagDialogOpen] = useState(false);
+  const [flagReason, setFlagReason] = useState("");
+  const [flagError, setFlagError] = useState<string | null>(null);
   const updateStatusMutation = useUsersControllerUpdateStatus({
     mutation: {
       onSuccess: () => {
@@ -97,6 +194,49 @@ export default function AdminUserDetailPage() {
     });
   };
 
+  const invalidateUser = () => {
+    queryClient.invalidateQueries({
+      queryKey: getUsersControllerFindOneQueryKey(userId),
+    });
+    queryClient.invalidateQueries({
+      queryKey: getUsersControllerFindAllQueryKey(),
+    });
+  };
+
+  const flagMutation = useUsersControllerFlagUser({
+    mutation: {
+      onSuccess: () => {
+        invalidateUser();
+        setFlagDialogOpen(false);
+        setFlagReason("");
+        setFlagError(null);
+      },
+      onError: (error) => {
+        setFlagError(
+          (error as unknown as { response?: { data?: { message?: string } } })
+            ?.response?.data?.message || "Failed to flag user",
+        );
+      },
+    },
+  });
+
+  const unflagMutation = useUsersControllerUnflagUser({
+    mutation: {
+      onSuccess: () => {
+        invalidateUser();
+      },
+    },
+  });
+
+  const confirmFlag = () => {
+    const reason = flagReason.trim();
+    if (!reason) {
+      setFlagError("A reason is required to flag this account");
+      return;
+    }
+    flagMutation.mutate({ id: userId, data: { reason } });
+  };
+
   if (isLoading) return <LoadingState text="Loading user details..." />;
 
   if (isError || !user) {
@@ -111,6 +251,27 @@ export default function AdminUserDetailPage() {
 
   const isInfluencer = user.role === "influencer";
   const isClient = user.role === "client";
+
+  const paginate = <T,>(items: T[] | undefined, pageNum: number, lim: number) =>
+    (items ?? []).slice((pageNum - 1) * lim, pageNum * lim);
+  const pageCount = (total: number, lim: number) =>
+    Math.max(1, Math.ceil(total / lim));
+
+  const pagedSubmissions = paginate(
+    overview?.submissions,
+    submissionsPage,
+    submissionsLimit,
+  );
+  const pagedCampaigns = paginate(
+    overview?.campaigns,
+    campaignsPage,
+    campaignsLimit,
+  );
+  const pagedPayments = paginate(
+    overview?.payments,
+    paymentsPage,
+    paymentsLimit,
+  );
 
   return (
     <div className="space-y-6">
@@ -130,6 +291,16 @@ export default function AdminUserDetailPage() {
                 {user.role}
               </Badge>
               <StatusBadge status={user.status} />
+              {user.isFlagged && (
+                <Badge
+                  variant="outline"
+                  className="border-amber-500/60 bg-amber-500/10 text-amber-600"
+                  title={user.flagReason ?? "Flagged"}
+                >
+                  <Flag className="mr-1 h-3 w-3" />
+                  Flagged
+                </Badge>
+              )}
             </div>
             <p className="text-muted-foreground">{user.email}</p>
           </div>
@@ -179,8 +350,122 @@ export default function AdminUserDetailPage() {
               Unsuspend
             </Button>
           )}
+
+          {isInfluencer &&
+            (user.isFlagged ? (
+              <Button
+                variant="outline"
+                className="text-emerald-600 border-emerald-600 hover:bg-emerald-50"
+                onClick={() => unflagMutation.mutate({ id: userId })}
+                disabled={unflagMutation.isPending}
+              >
+                <FlagOff className="h-4 w-4 mr-2" />
+                Remove Flag
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                className="text-amber-600 border-amber-600 hover:bg-amber-50"
+                onClick={() => {
+                  setFlagReason("");
+                  setFlagError(null);
+                  setFlagDialogOpen(true);
+                }}
+                disabled={flagMutation.isPending}
+              >
+                <Flag className="h-4 w-4 mr-2" />
+                Flag Account
+              </Button>
+            ))}
         </div>
       </div>
+
+      {isInfluencer && overview && (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Total Earned
+              </CardTitle>
+              <CreditCard className="h-4 w-4 text-purple-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                GH₵{overview.stats.paidEarnings.toFixed(2)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                GH₵{overview.stats.pendingEarnings.toFixed(2)} pending
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Total Views
+              </CardTitle>
+              <Eye className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {overview.stats.totalViews.toLocaleString()}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                on approved submissions
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Campaigns
+              </CardTitle>
+              <Megaphone className="h-4 w-4 text-emerald-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {overview.stats.campaignsParticipated}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {overview.stats.activeCampaigns} active
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Submissions
+              </CardTitle>
+              <FileImage className="h-4 w-4 text-orange-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {overview.stats.totalSubmissions}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {overview.stats.approvedSubmissions} approved ·{" "}
+                {overview.stats.pendingSubmissions} pending ·{" "}
+                {overview.stats.rejectedSubmissions} rejected
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Surveys
+              </CardTitle>
+              <ClipboardList className="h-4 w-4 text-indigo-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {overview.stats.surveysCompleted}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                GH₵{overview.stats.surveyEarnings.toFixed(2)} earned
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
@@ -201,6 +486,17 @@ export default function AdminUserDetailPage() {
             <FieldRow label="Phone" value={user.phone || undefined} />
             <Separator />
             <FieldRow label="Status" value={user.status} />
+            <FieldRow
+              label="Flagged"
+              value={
+                user.isFlagged
+                  ? `Yes${user.flaggedAt ? ` — ${new Date(user.flaggedAt).toLocaleDateString()}` : ""}`
+                  : "No"
+              }
+            />
+            {user.isFlagged && (
+              <FieldRow label="Flag Reason" value={user.flagReason ?? undefined} />
+            )}
             <FieldRow
               label="Profile Completed"
               value={String(!!user.profileCompleted)}
@@ -268,6 +564,10 @@ export default function AdminUserDetailPage() {
                       : undefined
                   }
                 />
+                <FieldRow
+                  label="City / Town / Village"
+                  value={user.city || undefined}
+                />
                 {user.country === "GHA" ? (
                   <>
                     <FieldRow
@@ -325,6 +625,303 @@ export default function AdminUserDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {isInfluencer && overview && (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Submitted Screenshots</CardTitle>
+              <CardDescription>
+                All submissions — approved, pending and rejected — with views
+                and estimated earnings per post
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {overview.submissions.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <FileImage className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p className="text-sm">No submissions yet</p>
+                </div>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  {pagedSubmissions.map((submission) => (
+                    <div
+                      key={submission.id}
+                      className="rounded-lg border overflow-hidden"
+                    >
+                      {submission.screenshotUrl ? (
+                        <img
+                          src={submission.screenshotUrl}
+                          alt={submission.campaignName}
+                          className="h-40 w-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                          onClick={() =>
+                            setViewingScreenshot({
+                              url: submission.screenshotUrl!,
+                              campaignName: submission.campaignName,
+                            })
+                          }
+                        />
+                      ) : (
+                        <div className="h-40 w-full bg-muted flex items-center justify-center">
+                          <FileImage className="h-8 w-8 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="p-3 space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-medium truncate">
+                            {submission.campaignName}
+                          </p>
+                          <StatusBadge status={submission.approvalStatus} />
+                        </div>
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Eye className="h-3 w-3" />
+                            {submission.views.toLocaleString()} views
+                          </span>
+                          <span>
+                            GH₵{submission.earnedAmount.toFixed(2)}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(
+                            submission.submissionDate,
+                          ).toLocaleDateString()}
+                        </p>
+                        {submission.reviewNotes && (
+                          <p className="text-xs text-muted-foreground italic truncate" title={submission.reviewNotes}>
+                            {submission.reviewNotes}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {overview.submissions.length > 0 && (
+                <PaginationBar
+                  page={submissionsPage}
+                  totalPages={pageCount(
+                    overview.submissions.length,
+                    submissionsLimit,
+                  )}
+                  limit={submissionsLimit}
+                  limitOptions={[8, 16, 32, 64]}
+                  onPageChange={setSubmissionsPage}
+                  onLimitChange={(l) => {
+                    setSubmissionsLimit(l);
+                    setSubmissionsPage(1);
+                  }}
+                />
+              )}
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Campaigns Participated</CardTitle>
+                <CardDescription>
+                  Campaigns this influencer has been assigned to
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {overview.campaigns.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">
+                    No campaigns yet
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {pagedCampaigns.map((campaign) => (
+                      <Link
+                        key={campaign.id}
+                        href={`/admin/campaigns/${campaign.id}`}
+                        className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">
+                            {campaign.campaignName}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Assigned{" "}
+                            {new Date(
+                              campaign.assignedDate,
+                            ).toLocaleDateString()}{" "}
+                            · {campaign.submissionsCount} submissions ·{" "}
+                            {campaign.views.toLocaleString()} views
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-sm font-semibold">
+                            GH₵{campaign.earnedAmount.toFixed(2)}
+                          </span>
+                          <StatusBadge status={campaign.campaignStatus} />
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+                {overview.campaigns.length > 0 && (
+                  <PaginationBar
+                    page={campaignsPage}
+                    totalPages={pageCount(
+                      overview.campaigns.length,
+                      campaignsLimit,
+                    )}
+                    limit={campaignsLimit}
+                    limitOptions={[5, 10, 20, 50]}
+                    onPageChange={setCampaignsPage}
+                    onLimitChange={(l) => {
+                      setCampaignsLimit(l);
+                      setCampaignsPage(1);
+                    }}
+                  />
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Payments</CardTitle>
+                <CardDescription>
+                  Payment records for this influencer
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {overview.payments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">
+                    No payments yet
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {pagedPayments.map((payment) => (
+                      <div
+                        key={payment.id}
+                        className="flex items-center justify-between p-3 rounded-lg border"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">
+                            {payment.campaignName}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {payment.viewsDelivered.toLocaleString()} views ·{" "}
+                            {new Date(
+                              payment.paymentDate || payment.createdAt,
+                            ).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-sm font-semibold">
+                            GH₵{payment.totalAmount.toFixed(2)}
+                          </span>
+                          <StatusBadge status={payment.status} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {overview.payments.length > 0 && (
+                  <PaginationBar
+                    page={paymentsPage}
+                    totalPages={pageCount(
+                      overview.payments.length,
+                      paymentsLimit,
+                    )}
+                    limit={paymentsLimit}
+                    limitOptions={[5, 10, 20, 50]}
+                    onPageChange={setPaymentsPage}
+                    onLimitChange={(l) => {
+                      setPaymentsLimit(l);
+                      setPaymentsPage(1);
+                    }}
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
+
+      <Dialog
+        open={!!viewingScreenshot}
+        onOpenChange={() => setViewingScreenshot(null)}
+      >
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {viewingScreenshot?.campaignName || "Submission"} — Screenshot
+            </DialogTitle>
+          </DialogHeader>
+          {viewingScreenshot && (
+            <img
+              src={viewingScreenshot.url}
+              alt="Submission screenshot"
+              className="max-h-[75vh] w-auto max-w-full mx-auto rounded-lg object-contain"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={flagDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setFlagDialogOpen(false);
+            setFlagReason("");
+            setFlagError(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Flag Account</DialogTitle>
+            <DialogDescription>
+              Flag {user.name || user.email} for review. The influencer will be
+              notified with the reason you provide.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="flag-reason">Reason for flagging *</Label>
+            <Textarea
+              id="flag-reason"
+              placeholder="e.g., Submitted fake views, multiple fake accounts, spam submissions..."
+              value={flagReason}
+              onChange={(e) => {
+                setFlagReason(e.target.value);
+                setFlagError(null);
+              }}
+              rows={3}
+            />
+            {flagError && (
+              <p className="text-sm text-destructive">{flagError}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setFlagDialogOpen(false);
+                setFlagReason("");
+                setFlagError(null);
+              }}
+              disabled={flagMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmFlag}
+              disabled={flagMutation.isPending}
+            >
+              {flagMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Flag className="mr-2 h-4 w-4" />
+              )}
+              Flag Account
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

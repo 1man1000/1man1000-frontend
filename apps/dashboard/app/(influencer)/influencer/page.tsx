@@ -20,6 +20,8 @@ import {
   ClipboardList,
   Target,
   DollarSign,
+  Trophy,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -28,9 +30,11 @@ import {
   useCampaignsControllerGetInfluencerCampaigns,
   useCampaignsControllerGetAvailableCampaigns,
   usePaymentsControllerGetInfluencerPayments,
+  useUsersControllerGetLeaderboard,
 } from "@workspace/client";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
+import { CampaignAssetThumbnail } from "@/components/campaign-asset-thumbnail";
 import { isCampaignExpired } from "@/lib/campaign-utils";
 
 export default function InfluencerDashboard() {
@@ -64,13 +68,20 @@ export default function InfluencerDashboard() {
     isError: isErrorPayments,
     refetch: refetchPayments,
   } = usePaymentsControllerGetInfluencerPayments();
+  const {
+    data: leaderboardResponse,
+    isLoading: isLoadingLeaderboard,
+    isError: isErrorLeaderboard,
+    refetch: refetchLeaderboard,
+  } = useUsersControllerGetLeaderboard({ limit: 10 });
 
   if (
     isLoadingSurveys ||
     isLoadingSurveyStats ||
     isLoadingMyCampaigns ||
     isLoadingAvailableCampaigns ||
-    isLoadingPayments
+    isLoadingPayments ||
+    isLoadingLeaderboard
   ) {
     return <LoadingState text="Loading dashboard..." />;
   }
@@ -80,7 +91,8 @@ export default function InfluencerDashboard() {
     isErrorSurveyStats ||
     isErrorMyCampaigns ||
     isErrorAvailableCampaigns ||
-    isErrorPayments
+    isErrorPayments ||
+    isErrorLeaderboard
   ) {
     return (
       <ErrorState
@@ -92,6 +104,7 @@ export default function InfluencerDashboard() {
           refetchMyCampaigns();
           refetchAvailableCampaigns();
           refetchPayments();
+          refetchLeaderboard();
         }}
       />
     );
@@ -108,7 +121,7 @@ export default function InfluencerDashboard() {
 
   const campaigns = campaignsResponse?.data || [];
   const activeCampaignsCount = campaigns.filter(
-    (c) => c.status === "active" || c.status === "approved",
+    (c) => c.status === "approved",
   ).length;
 
   const availableCampaigns = availableCampaignsResponse?.data || [];
@@ -139,14 +152,16 @@ export default function InfluencerDashboard() {
       id: c.id,
       name: c.title || c.brandName,
       brand: c.client?.name || c.brandName,
+      campaignAsset: c.campaignAsset,
       paymentTiers: tiers,
       potential: { min: potentialMin, max: potentialMax },
       status: c.status,
+      participants: c._count?.assignments ?? 0,
     };
   });
 
   const activeCampaigns = campaigns
-    .filter((c: any) => c.status === "active" || c.status === "approved")
+    .filter((c: any) => c.status === "approved")
     .slice(0, 3)
     .map((c: any) => {
       const endDate = new Date(c.endDate);
@@ -158,9 +173,11 @@ export default function InfluencerDashboard() {
         id: c.id,
         name: c.title || c.brandName,
         brand: c.brandName,
+        campaignAsset: c.campaignAsset,
         deadline: daysLeft > 0 ? `${daysLeft} days left` : "Expired",
         status: c.assignmentStatus || "assigned",
         endDate: c.endDate, // Add original endDate for isCampaignExpired check
+        participants: c._count?.assignments ?? 0,
       };
     });
 
@@ -253,11 +270,28 @@ export default function InfluencerDashboard() {
                     key={campaign.id}
                     className="flex items-center justify-between p-3 rounded-lg border"
                   >
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium">{campaign.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {campaign.brand}
-                      </p>
+                    <div className="flex items-center gap-3 min-w-0">
+                      {campaign.campaignAsset ? (
+                        <CampaignAssetThumbnail
+                          src={campaign.campaignAsset as unknown as string}
+                          title={campaign.name}
+                          className="h-14 w-20"
+                        />
+                      ) : null}
+                      <div className="space-y-1 min-w-0">
+                        <p className="text-sm font-medium">{campaign.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {campaign.brand}
+                        </p>
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Users className="h-3 w-3" />
+                          {campaign.participants}{" "}
+                          {campaign.participants === 1
+                            ? "influencer"
+                            : "influencers"}{" "}
+                          participating
+                        </p>
+                      </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-xs text-muted-foreground">
@@ -322,30 +356,46 @@ export default function InfluencerDashboard() {
                     key={campaign.id}
                     className="flex items-center justify-between p-3 rounded-lg border"
                   >
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium">
-                        {campaign.name as string}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {campaign.brand as string}
-                      </p>
-                      <div className="flex items-center gap-3 pt-1">
-                        <span className="text-xs text-muted-foreground flex items-center gap-1">
-                          <DollarSign className="h-3 w-3" />
-                          {campaign.paymentTiers &&
-                          campaign.paymentTiers.length > 0 ? (
-                            <>
-                              Up to GH₵
-                              {Number(
-                                campaign.paymentTiers[
-                                  campaign.paymentTiers.length - 1
-                                ]?.amount || 0,
-                              ).toFixed(3)}
-                            </>
-                          ) : (
-                            "Tiered pricing"
-                          )}
-                        </span>
+                    <div className="flex items-center gap-3 min-w-0">
+                      {campaign.campaignAsset ? (
+                        <CampaignAssetThumbnail
+                          src={campaign.campaignAsset as unknown as string}
+                          title={campaign.name as string}
+                          className="h-14 w-20"
+                        />
+                      ) : null}
+                      <div className="space-y-1 min-w-0">
+                        <p className="text-sm font-medium">
+                          {campaign.name as string}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {campaign.brand as string}
+                        </p>
+                        <div className="flex items-center gap-3 pt-1">
+                          <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <DollarSign className="h-3 w-3" />
+                            {campaign.paymentTiers &&
+                            campaign.paymentTiers.length > 0 ? (
+                              <>
+                                Up to GH₵
+                                {Number(
+                                  campaign.paymentTiers[
+                                    campaign.paymentTiers.length - 1
+                                  ]?.amount || 0,
+                                ).toFixed(3)}
+                              </>
+                            ) : (
+                              "Tiered pricing"
+                            )}
+                          </span>
+                          <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Users className="h-3 w-3" />
+                            {campaign.participants}{" "}
+                            {campaign.participants === 1
+                              ? "influencer"
+                              : "influencers"}
+                          </span>
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -487,11 +537,28 @@ export default function InfluencerDashboard() {
                       key={campaign.id}
                       className="flex items-center justify-between p-3 rounded-lg border"
                     >
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium">{campaign.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {campaign.brand}
-                        </p>
+                      <div className="flex items-center gap-3 min-w-0">
+                        {campaign.campaignAsset ? (
+                          <CampaignAssetThumbnail
+                            src={campaign.campaignAsset as unknown as string}
+                            title={campaign.name}
+                            className="h-14 w-20"
+                          />
+                        ) : null}
+                        <div className="space-y-1 min-w-0">
+                          <p className="text-sm font-medium">{campaign.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {campaign.brand}
+                          </p>
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Users className="h-3 w-3" />
+                            {campaign.participants}{" "}
+                            {campaign.participants === 1
+                              ? "influencer"
+                              : "influencers"}{" "}
+                            participating
+                          </p>
+                        </div>
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-xs text-muted-foreground">
@@ -556,30 +623,46 @@ export default function InfluencerDashboard() {
                       key={campaign.id}
                       className="flex items-center justify-between p-3 rounded-lg border"
                     >
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium">
-                          {campaign.name as string}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {campaign.brand as string}
-                        </p>
-                        <div className="flex items-center gap-3 pt-1">
-                          <span className="text-xs text-muted-foreground flex items-center gap-1">
-                            <DollarSign className="h-3 w-3" />
-                            {campaign.paymentTiers &&
-                            campaign.paymentTiers.length > 0 ? (
-                              <>
-                                Up to GH₵
-                                {Number(
-                                  campaign.paymentTiers[
-                                    campaign.paymentTiers.length - 1
-                                  ]?.amount || 0,
-                                ).toFixed(3)}
-                              </>
-                            ) : (
-                              "Tiered pricing"
-                            )}
-                          </span>
+                      <div className="flex items-center gap-3 min-w-0">
+                        {campaign.campaignAsset ? (
+                          <CampaignAssetThumbnail
+                            src={campaign.campaignAsset as unknown as string}
+                            title={campaign.name as string}
+                            className="h-14 w-20"
+                          />
+                        ) : null}
+                        <div className="space-y-1 min-w-0">
+                          <p className="text-sm font-medium">
+                            {campaign.name as string}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {campaign.brand as string}
+                          </p>
+                          <div className="flex items-center gap-3 pt-1">
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <DollarSign className="h-3 w-3" />
+                              {campaign.paymentTiers &&
+                              campaign.paymentTiers.length > 0 ? (
+                                <>
+                                  Up to GH₵
+                                  {Number(
+                                    campaign.paymentTiers[
+                                      campaign.paymentTiers.length - 1
+                                    ]?.amount || 0,
+                                  ).toFixed(3)}
+                                </>
+                              ) : (
+                                "Tiered pricing"
+                              )}
+                            </span>
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Users className="h-3 w-3" />
+                              {campaign.participants}{" "}
+                              {campaign.participants === 1
+                                ? "influencer"
+                                : "influencers"}
+                            </span>
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -806,6 +889,113 @@ export default function InfluencerDashboard() {
           </Card>
         </div>
       </div>
+
+      {/* Leaderboard - visible on all screen sizes */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <div className="p-2 rounded-xl bg-amber-500/10">
+              <Trophy className="h-5 w-5 text-amber-600" />
+            </div>
+            Leaderboard
+          </CardTitle>
+          <CardDescription>
+            Top influencers ranked by approved views
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {(leaderboardResponse?.entries || []).length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Trophy className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p className="text-sm">No rankings yet</p>
+              <p className="text-xs mt-1">
+                Be the first — submit screenshots and rack up views!
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {leaderboardResponse!.entries.map((entry) => (
+                <div
+                  key={entry.influencerId}
+                  className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
+                    entry.isCurrentUser
+                      ? "bg-primary/10 border border-primary/30"
+                      : "bg-muted/30 hover:bg-muted/50"
+                  }`}
+                >
+                  <div
+                    className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${
+                      entry.rank === 1
+                        ? "bg-yellow-400 text-yellow-900"
+                        : entry.rank === 2
+                          ? "bg-gray-300 text-gray-700"
+                          : entry.rank === 3
+                            ? "bg-amber-600 text-white"
+                            : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {entry.rank}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {entry.name}
+                      {entry.isCurrentUser && (
+                        <span className="ml-2 text-xs font-semibold text-primary">
+                          You
+                        </span>
+                      )}
+                    </p>
+                    {entry.publicInfluencerId && (
+                      <p className="text-xs text-muted-foreground truncate">
+                        {entry.publicInfluencerId}
+                      </p>
+                    )}
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-semibold flex items-center gap-1 justify-end">
+                      <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                      {entry.totalViews.toLocaleString()}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {entry.submissionsCount} submissions
+                    </p>
+                  </div>
+                </div>
+              ))}
+              {leaderboardResponse?.currentUserRank &&
+                leaderboardResponse.currentUserRank >
+                  leaderboardResponse.entries.length && (
+                  <div className="pt-2 mt-2 border-t">
+                    <div className="flex items-center gap-3 p-3 rounded-lg bg-primary/10 border border-primary/30">
+                      <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold text-primary shrink-0">
+                        {leaderboardResponse.currentUserRank}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">
+                          Your rank
+                          <span className="ml-2 text-xs font-semibold text-primary">
+                            You
+                          </span>
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Keep submitting to climb the board!
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-semibold flex items-center gap-1 justify-end">
+                          <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                          {(
+                            leaderboardResponse.currentUserViews || 0
+                          ).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

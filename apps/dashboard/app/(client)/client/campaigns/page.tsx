@@ -19,7 +19,7 @@ import {
   TabsTrigger,
 } from "@workspace/ui/components/tabs";
 import { Progress } from "@workspace/ui/components/progress";
-import { Search, Plus, Eye, Users, Edit } from "lucide-react";
+import { Search, Plus, Eye, Users, Edit, GitBranch } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
@@ -50,7 +50,7 @@ export default function ClientCampaignsPage() {
   });
 
   const activeCount = campaigns.filter(
-    (c) => c.status === "active" || c.status === "approved",
+    (c) => c.status === "approved",
   ).length;
   const pendingCount = campaigns.filter((c) => c.status === "pending").length;
   const completedCount = campaigns.filter(
@@ -184,7 +184,7 @@ export default function ClientCampaignsPage() {
                 <Card key={campaign.id} className="overflow-hidden">
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg">
+                      <CardTitle className="text-lg flex items-center gap-2">
                         {(campaign.title as any) || campaign.brandName}
                       </CardTitle>
                       <StatusBadge status={campaign.status} />
@@ -220,7 +220,7 @@ export default function ClientCampaignsPage() {
                     <div className="flex items-center justify-between text-sm">
                       <div className="flex items-center gap-1.5 text-muted-foreground">
                         <Users className="h-4 w-4" />
-                        {campaign._count.assignments || 0} influencers
+                        {campaign._count?.assignments || 0} influencers
                       </div>
                       <div className="font-semibold">
                         GH₵{campaign.budget?.toLocaleString()}
@@ -231,6 +231,28 @@ export default function ClientCampaignsPage() {
                       {new Date(campaign.startDate).toLocaleDateString()} -{" "}
                       {new Date(campaign.endDate).toLocaleDateString()}
                     </div>
+
+                    {campaign.subCampaigns &&
+                      campaign.subCampaigns.length > 0 && (
+                        <div className="rounded-md border bg-muted/30 p-2.5 space-y-1">
+                          <p className="text-xs font-medium text-muted-foreground">
+                            Sub-campaigns ({campaign.subCampaigns.length})
+                          </p>
+                          {campaign.subCampaigns.map((sub) => (
+                            <Link
+                              key={sub.id}
+                              href={`/client/campaigns/${sub.id}`}
+                              className="flex items-center gap-1.5 text-xs text-primary hover:underline"
+                            >
+                              <GitBranch className="h-3 w-3 shrink-0" />
+                              <span>{sub.title || sub.brandName}</span>
+                              <span className="text-muted-foreground">
+                                ({sub.status})
+                              </span>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
 
                     <div className="flex gap-2 pt-2">
                       <Button

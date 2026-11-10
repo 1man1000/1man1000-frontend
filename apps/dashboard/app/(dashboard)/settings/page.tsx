@@ -38,9 +38,11 @@ import {
 } from "@workspace/ui/components/select";
 import { Checkbox } from "@workspace/ui/components/checkbox";
 import { CountryDropdown } from "@workspace/ui/components/country-dropdown";
+import { ContentPreferencesSelect } from "@/components/content-preferences-select";
 
 type InfluencerFormState = {
   country: string;
+  city: string;
   mobileMoneyNumber: string;
   mobileMoneyNetwork: "MTN" | "Vodafone" | "AirtelTigo" | "";
   bankName: string;
@@ -56,6 +58,7 @@ type InfluencerFormState = {
     | "age_45_54"
     | "age_55_plus"
     | "";
+  contentPreferences: string[];
 };
 
 const allSchoolOptions = [
@@ -107,6 +110,7 @@ export default function SettingsPage() {
   const [influencerFormData, setInfluencerFormData] =
     useState<InfluencerFormState>({
       country: "",
+      city: "",
       mobileMoneyNumber: "",
       mobileMoneyNetwork: "",
       bankName: "",
@@ -116,6 +120,7 @@ export default function SettingsPage() {
       schoolName: "",
       gender: "",
       ageBracket: "",
+      contentPreferences: [],
     });
 
   const {
@@ -148,6 +153,7 @@ export default function SettingsPage() {
     };
     setInfluencerFormData({
       country: profile.country || "",
+      city: profile.city || "",
       mobileMoneyNumber: profile.mobileMoneyNumber || "",
       mobileMoneyNetwork: profile.mobileMoneyNetwork || "",
       bankName: profile.bankName || "",
@@ -157,6 +163,7 @@ export default function SettingsPage() {
       schoolName: profile.schoolName || "",
       gender: profile.gender || "",
       ageBracket: profile.ageBracket || "",
+      contentPreferences: profile.contentPreferences || [],
     });
   }, [typedProfile, user?.role]);
 
@@ -229,6 +236,10 @@ export default function SettingsPage() {
       setInfluencerFormError("Country is required");
       return false;
     }
+    if (!influencerFormData.city.trim()) {
+      setInfluencerFormError("City / Town / Village is required");
+      return false;
+    }
     if (isGhana) {
       if (!influencerFormData.mobileMoneyNumber.trim()) {
         setInfluencerFormError("Mobile money number is required");
@@ -264,6 +275,10 @@ export default function SettingsPage() {
       setInfluencerFormError("Age bracket is required");
       return false;
     }
+    if (influencerFormData.contentPreferences.length === 0) {
+      setInfluencerFormError("Please select at least one content preference");
+      return false;
+    }
 
     setInfluencerFormError("");
     return true;
@@ -279,6 +294,7 @@ export default function SettingsPage() {
       bankAccountNumber?: string;
     } = {
       country: influencerFormData.country,
+      city: influencerFormData.city,
       mobileMoneyNumber: isGhana
         ? influencerFormData.mobileMoneyNumber
         : undefined,
@@ -296,6 +312,8 @@ export default function SettingsPage() {
         : undefined,
       gender: influencerFormData.gender as UpdateUserDto["gender"],
       ageBracket: influencerFormData.ageBracket as UpdateUserDto["ageBracket"],
+      contentPreferences:
+        influencerFormData.contentPreferences as UpdateUserDto["contentPreferences"],
     };
 
     updateMutation.mutate({
@@ -424,18 +442,37 @@ export default function SettingsPage() {
                         Payment Information
                       </h3>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="country">Country *</Label>
-                        <CountryDropdown
-                          placeholder="Select country"
-                          defaultValue={influencerFormData.country}
-                          onChange={(country) =>
-                            setInfluencerFormData((p) => ({
-                              ...p,
-                              country: country.alpha3,
-                            }))
-                          }
-                        />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="country">Country *</Label>
+                          <CountryDropdown
+                            placeholder="Select country"
+                            defaultValue={influencerFormData.country}
+                            onChange={(country) =>
+                              setInfluencerFormData((p) => ({
+                                ...p,
+                                country: country.alpha3,
+                              }))
+                            }
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="city">City / Town / Village *</Label>
+                          <Input
+                            id="city"
+                            type="text"
+                            placeholder="e.g., Accra, Kumasi, Tamale"
+                            value={influencerFormData.city}
+                            onChange={(e) =>
+                              setInfluencerFormData((p) => ({
+                                ...p,
+                                city: e.target.value,
+                              }))
+                            }
+                            required
+                          />
+                        </div>
                       </div>
 
                       {isGhana ? (
@@ -650,6 +687,16 @@ export default function SettingsPage() {
                           </Select>
                         </div>
                       </div>
+
+                      <ContentPreferencesSelect
+                        value={influencerFormData.contentPreferences}
+                        onChange={(contentPreferences) =>
+                          setInfluencerFormData((p) => ({
+                            ...p,
+                            contentPreferences,
+                          }))
+                        }
+                      />
                     </div>
 
                     <Button

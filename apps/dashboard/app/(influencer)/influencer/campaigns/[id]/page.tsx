@@ -7,6 +7,7 @@ import { useCampaignsControllerFindOne } from "@workspace/client";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card";
@@ -28,6 +29,9 @@ import {
 import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
 import Link from "next/link";
+import { ShareCampaignButton } from "@/components/share-campaign-button";
+import { CampaignJourneyStepper } from "@/components/campaign-journey-stepper";
+import { useAuthStore } from "@/lib/auth-store";
 import VideoPlayerComponent from "@/components/video-player";
 import { downloadCampaignAsset } from "@/lib/services/downloadService";
 import { isCampaignExpired } from "@/lib/campaign-utils";
@@ -35,6 +39,7 @@ import { isCampaignExpired } from "@/lib/campaign-utils";
 const statusColors = {
   active: "bg-green-100 text-green-800",
   pending: "bg-yellow-100 text-yellow-800",
+  paused: "bg-orange-100 text-orange-800",
   completed: "bg-blue-100 text-blue-800",
   rejected: "bg-red-100 text-red-800",
   approved: "bg-green-100 text-green-800",
@@ -43,6 +48,7 @@ const statusColors = {
 export default function CampaignDetailPage() {
   const params = useParams();
   const campaignId = params.id as string;
+  const { user } = useAuthStore();
   const [showAssetModal, setShowAssetModal] = useState(false);
   const [copiedDescription, setCopiedDescription] = useState(false);
 
@@ -69,6 +75,17 @@ export default function CampaignDetailPage() {
   }
 
   const isExpired = isCampaignExpired(campaign.endDate);
+
+  const mySubmission = campaign.submissions
+    ?.filter(
+      (s: any) =>
+        s.influencerId === user?.id || s.influencer?.id === user?.id,
+    )
+    .sort(
+      (a: any, b: any) =>
+        new Date(b.submissionDate).getTime() -
+        new Date(a.submissionDate).getTime(),
+    )[0];
 
   const handleCopyDescription = async () => {
     if (campaign.description) {
@@ -113,20 +130,77 @@ export default function CampaignDetailPage() {
             </p>
           </div>
         </div>
-        {isExpired ? (
-          <Button size="lg" disabled variant="secondary">
-            <Clock className="h-4 w-4 mr-2" />
-            Campaign Expired
-          </Button>
-        ) : (
-          <Button size="lg" asChild>
-            <Link href={`/influencer/campaigns/${campaignId}/submit`}>
-              <Upload className="h-4 w-4 mr-2" />
-              Submit Work
-            </Link>
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ShareCampaignButton
+            campaignId={campaignId}
+            campaignTitle={campaign.title || campaign.brandName}
+            size="lg"
+            disabled={isExpired}
+          />
+          {isExpired ? (
+            <Button size="lg" disabled variant="secondary">
+              <Clock className="h-4 w-4 mr-2" />
+              Campaign Expired
+            </Button>
+          ) : campaign.status === "paused" ? (
+            <Button size="lg" disabled variant="secondary">
+              <Clock className="h-4 w-4 mr-2" />
+              Campaign Paused
+            </Button>
+          ) : campaign.status !== "approved" ? (
+            <Button size="lg" disabled variant="secondary">
+              <Clock className="h-4 w-4 mr-2" />
+              Not Accepting Submissions
+            </Button>
+          ) : (
+            <Button size="lg" asChild>
+              <Link href={`/influencer/campaigns/${campaignId}/submit`}>
+                <Upload className="h-4 w-4 mr-2" />
+                Submit Work
+              </Link>
+            </Button>
+          )}
+        </div>
       </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Your Journey</CardTitle>
+          <CardDescription>
+            Track where you are in this campaign
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CampaignJourneyStepper
+            submissionStatus={mySubmission?.approvalStatus}
+          />
+          {!mySubmission && (
+            <p className="text-xs text-muted-foreground mt-4 text-center">
+              Post the campaign content on your platform, then submit a
+              screenshot showing your view count.
+            </p>
+          )}
+          {mySubmission?.approvalStatus === "pending" && (
+            <p className="text-xs text-muted-foreground mt-4 text-center">
+              Your submission is being reviewed. You&apos;ll be notified once a
+              decision is made.
+            </p>
+          )}
+          {mySubmission?.approvalStatus === "approved" && (
+            <p className="text-xs text-muted-foreground mt-4 text-center">
+              Approved — your payout will be processed according to the payment
+              tiers.
+            </p>
+          )}
+          {(mySubmission?.approvalStatus === "rejected" ||
+            String(mySubmission?.approvalStatus) === "reversed") && (
+            <p className="text-xs text-muted-foreground mt-4 text-center">
+              Your submission was not approved. Contact support if you believe
+              this was a mistake.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

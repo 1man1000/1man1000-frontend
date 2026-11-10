@@ -23,6 +23,7 @@ import {
   TabsTrigger,
 } from "@workspace/ui/components/tabs";
 import { ClipboardList, Clock, CheckCircle, Star, Play } from "lucide-react";
+import { ShareSurveyButton } from "@/components/share-survey-button";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
 
@@ -72,6 +73,8 @@ export default function InfluencerSurveysPage() {
         reward: a.paymentAmount || a.survey?.paymentPerResponse || 0,
         duration: `${a.survey?._count?.questions || 0} questions`,
         status,
+        surveyStatus: a.survey?.status,
+        endDate: a.survey?.endDate,
         category: "Survey",
       };
     });
@@ -87,6 +90,8 @@ export default function InfluencerSurveysPage() {
       reward: s.paymentPerResponse || 0,
       duration: `${s._count?.questions || 0} questions`,
       status: "available",
+      surveyStatus: s.status,
+      endDate: s.endDate,
       category: "Survey",
       description: s.description,
     }));
@@ -228,27 +233,50 @@ export default function InfluencerSurveysPage() {
                       <span>{survey.duration}</span>
                     </div>
 
-                    {survey.status === "available" && (
-                      <Button className="w-full" asChild>
-                        <Link href={`/influencer/surveys/${survey.id}/take`}>
-                          <Play className="mr-2 h-4 w-4" />
-                          Start Survey
-                        </Link>
-                      </Button>
-                    )}
-                    {survey.status === "in_progress" && (
-                      <Button className="w-full" variant="secondary" asChild>
-                        <Link href={`/influencer/surveys/${survey.id}/take`}>
-                          Continue Survey
-                        </Link>
-                      </Button>
-                    )}
-                    {survey.status === "completed" && (
-                      <Button className="w-full" variant="outline" disabled>
-                        <CheckCircle className="mr-2 h-4 w-4" />
-                        Completed
-                      </Button>
-                    )}
+                    <div className="flex gap-2">
+                      {survey.status === "available" && (
+                        <Button className="flex-1" size="sm" asChild>
+                          <Link href={`/influencer/surveys/${survey.id}/take`}>
+                            <Play className="mr-2 h-4 w-4" />
+                            Start Survey
+                          </Link>
+                        </Button>
+                      )}
+                      {survey.status === "in_progress" && (
+                        <Button
+                          className="flex-1"
+                          size="sm"
+                          variant="secondary"
+                          asChild
+                        >
+                          <Link href={`/influencer/surveys/${survey.id}/take`}>
+                            Continue Survey
+                          </Link>
+                        </Button>
+                      )}
+                      {survey.status === "completed" && (
+                        <Button
+                          className="flex-1"
+                          size="sm"
+                          variant="outline"
+                          disabled
+                        >
+                          <CheckCircle className="mr-2 h-4 w-4" />
+                          Completed
+                        </Button>
+                      )}
+                      <ShareSurveyButton
+                        surveyId={survey.id}
+                        surveyTitle={survey.title}
+                        size="sm"
+                        className="flex-1"
+                        disabled={
+                          (survey.endDate &&
+                            new Date(survey.endDate) < new Date()) ||
+                          survey.surveyStatus === "closed"
+                        }
+                      />
+                    </div>
                   </CardContent>
                 </Card>
               ))}
