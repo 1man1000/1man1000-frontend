@@ -35,6 +35,7 @@ import {
   Loader2,
   ImageIcon,
   GitBranch,
+  Plus,
 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -145,6 +146,14 @@ export default function CampaignDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {!c.parentCampaign && (
+            <Button variant="outline" asChild>
+              <Link href={`/client/campaigns/new?parent=${campaignId}`}>
+                <Plus className="h-4 w-4 mr-2" />
+                New Sub-Campaign
+              </Link>
+            </Button>
+          )}
           <Button variant="outline" asChild>
             <Link href={`/client/campaigns/${campaignId}/edit`}>
               <Edit className="h-4 w-4 mr-2" />
@@ -312,11 +321,19 @@ export default function CampaignDetailPage() {
       {/* Sub-campaigns */}
       {hasSubCampaigns && (
         <Card>
-          <CardHeader>
-            <CardTitle>Sub-Campaigns ({c.subCampaigns!.length})</CardTitle>
-            <CardDescription>
-              Smaller campaigns feeding into this campaign
-            </CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <div className="space-y-1.5">
+              <CardTitle>Sub-Campaigns ({c.subCampaigns!.length})</CardTitle>
+              <CardDescription>
+                Smaller campaigns feeding into this campaign
+              </CardDescription>
+            </div>
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/client/campaigns/new?parent=${campaignId}`}>
+                <Plus className="h-4 w-4 mr-1" />
+                New Sub-Campaign
+              </Link>
+            </Button>
           </CardHeader>
           <CardContent>
             <div className="divide-y divide-border/60">
