@@ -20,10 +20,17 @@ TAG="${1:-${TAG:-latest}}"
 ARTIFACT_REGISTRY="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/${IMAGE_NAME}"
 FULL_IMAGE="${ARTIFACT_REGISTRY}:${TAG}"
 
+# NEXT_PUBLIC_API_URL is inlined at build time — override when targeting a
+# different backend (e.g. staging): NEXT_PUBLIC_API_URL=... ./scripts/deploy.sh
+API_URL="${NEXT_PUBLIC_API_URL:-https://api.1man1000.ai}"
+
 cd "${FRONTEND_DIR}"
 
 echo "→ Building Docker image: ${FULL_IMAGE}"
-docker build --platform linux/amd64 -f apps/dashboard/Dockerfile -t "${FULL_IMAGE}" .
+echo "→ NEXT_PUBLIC_API_URL: ${API_URL}"
+docker build --platform linux/amd64 -f apps/dashboard/Dockerfile \
+  --build-arg NEXT_PUBLIC_API_URL="${API_URL}" \
+  -t "${FULL_IMAGE}" .
 
 echo "→ Pushing to Artifact Registry: ${FULL_IMAGE}"
 docker push "${FULL_IMAGE}"
