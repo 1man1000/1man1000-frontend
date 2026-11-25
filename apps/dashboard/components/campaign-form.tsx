@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useCallback } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@workspace/ui/components/button";
 import {
@@ -187,7 +187,34 @@ export function CampaignForm({
     setPreviewUrl(null);
   }, [previewUrl]);
 
+  const [validationSummary, setValidationSummary] = useState<string[]>([]);
+
+  // Collect every leaf error message so failures on hidden fields (e.g.
+  // inherited sub-campaign values) are visible instead of silently
+  // blocking the submit.
+  const handleInvalid = (formErrors: FieldErrors<CampaignFormData>) => {
+    const messages: string[] = [];
+    const collect = (err: unknown, path: string) => {
+      if (!err || typeof err !== "object") return;
+      const e = err as { message?: unknown; type?: unknown } & Record<
+        string,
+        unknown
+      >;
+      if (typeof e.message === "string" && e.message) {
+        messages.push(`${path}: ${e.message}`);
+        return;
+      }
+      Object.entries(e).forEach(([key, value]) => {
+        if (key === "ref" || key === "type" || key === "types") return;
+        collect(value, path ? `${path}.${key}` : key);
+      });
+    };
+    Object.entries(formErrors).forEach(([key, value]) => collect(value, key));
+    setValidationSummary(messages);
+  };
+
   const handleFormSubmit = (data: CampaignFormData) => {
+    setValidationSummary([]);
     if (clients && !data.clientId) {
       setError("clientId", { message: "Please select a client" });
       return;
@@ -199,14 +226,18 @@ export function CampaignForm({
       value ? new Date(value).toISOString() : value;
 
     onSubmit(
-      { ...data, startDate: toIso(data.startDate)!, endDate: toIso(data.endDate)! },
+      {
+        ...data,
+        startDate: toIso(data.startDate)!,
+        endDate: toIso(data.endDate)!,
+      },
       selectedFile || undefined,
     );
   };
 
   return (
     <form
-      onSubmit={handleSubmit(handleFormSubmit)}
+      onSubmit={handleSubmit(handleFormSubmit, handleInvalid)}
       className={containerClassName || "space-y-6"}
     >
       {parentCampaign && (
@@ -215,7 +246,8 @@ export function CampaignForm({
             <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
             <div className="text-sm">
               <p className="font-medium">
-                Sub-campaign of "{parentCampaign.title || parentCampaign.brandName}"
+                Sub-campaign of "
+                {parentCampaign.title || parentCampaign.brandName}"
               </p>
               <p className="text-muted-foreground">
                 This campaign will be created as a sub-campaign feeding into the
@@ -227,116 +259,116 @@ export function CampaignForm({
       )}
 
       {!parentCampaign && (
-      <Card>
-        <CardHeader>
-          <CardTitle>Basic Information</CardTitle>
-          <CardDescription>
-            Enter the basic details of the campaign
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {clients && (
-            <div className="space-y-2">
-              <Label htmlFor="clientId">
-                Assign to Client <span className="text-destructive">*</span>
-              </Label>
-              <ClientCombobox
-                clients={clients}
-                value={selectedClientId}
-                invalid={!!errors.clientId}
-                onChange={(id) => {
-                  setValue("clientId", id, { shouldValidate: true });
-                  clearErrors("clientId");
-                }}
-              />
-              {errors.clientId && (
-                <p className="text-xs text-destructive">
-                  {errors.clientId.message}
-                </p>
-              )}
-            </div>
-          )}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="brandName">
-                Brand Name <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="brandName"
-                placeholder="Enter brand name"
-                {...register("brandName")}
-                className={errors.brandName ? "border-destructive" : ""}
-              />
-              {errors.brandName && (
-                <p className="text-xs text-destructive">
-                  {errors.brandName.message}
-                </p>
-              )}
+        <Card>
+          <CardHeader>
+            <CardTitle>Basic Information</CardTitle>
+            <CardDescription>
+              Enter the basic details of the campaign
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {clients && (
+              <div className="space-y-2">
+                <Label htmlFor="clientId">
+                  Assign to Client <span className="text-destructive">*</span>
+                </Label>
+                <ClientCombobox
+                  clients={clients}
+                  value={selectedClientId}
+                  invalid={!!errors.clientId}
+                  onChange={(id) => {
+                    setValue("clientId", id, { shouldValidate: true });
+                    clearErrors("clientId");
+                  }}
+                />
+                {errors.clientId && (
+                  <p className="text-xs text-destructive">
+                    {errors.clientId.message}
+                  </p>
+                )}
+              </div>
+            )}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="brandName">
+                  Brand Name <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="brandName"
+                  placeholder="Enter brand name"
+                  {...register("brandName")}
+                  className={errors.brandName ? "border-destructive" : ""}
+                />
+                {errors.brandName && (
+                  <p className="text-xs text-destructive">
+                    {errors.brandName.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="title">Campaign Title</Label>
+                <Input
+                  id="title"
+                  placeholder="Enter campaign title"
+                  {...register("title")}
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="title">Campaign Title</Label>
-              <Input
-                id="title"
-                placeholder="Enter campaign title"
-                {...register("title")}
+              <Label htmlFor="description">Description</Label>
+              <textarea
+                id="description"
+                placeholder="Enter campaign description"
+                {...register("description")}
+                className="flex min-h-[100px] w-full rounded-xl border border-border/60 bg-background px-4 py-3 text-sm shadow-sm transition-all placeholder:text-muted-foreground/70 hover:border-border focus-visible:border-primary focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary/20"
               />
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <textarea
-              id="description"
-              placeholder="Enter campaign description"
-              {...register("description")}
-              className="flex min-h-[100px] w-full rounded-xl border border-border/60 bg-background px-4 py-3 text-sm shadow-sm transition-all placeholder:text-muted-foreground/70 hover:border-border focus-visible:border-primary focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary/20"
-            />
-          </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="industry">
+                  Industry <span className="text-destructive">*</span>
+                </Label>
+                <select
+                  id="industry"
+                  {...register("industry")}
+                  className={`flex h-11 w-full rounded-xl border bg-background px-4 py-2 text-sm shadow-sm transition-all hover:border-border focus-visible:border-primary focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary/20 ${errors.industry ? "border-destructive" : "border-border/60"}`}
+                >
+                  <option value="">Select industry</option>
+                  {industries.map((industry) => (
+                    <option key={industry} value={industry}>
+                      {industry}
+                    </option>
+                  ))}
+                </select>
+                {errors.industry && (
+                  <p className="text-xs text-destructive">
+                    {errors.industry.message}
+                  </p>
+                )}
+              </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="industry">
-                Industry <span className="text-destructive">*</span>
-              </Label>
-              <select
-                id="industry"
-                {...register("industry")}
-                className={`flex h-11 w-full rounded-xl border bg-background px-4 py-2 text-sm shadow-sm transition-all hover:border-border focus-visible:border-primary focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary/20 ${errors.industry ? "border-destructive" : "border-border/60"}`}
-              >
-                <option value="">Select industry</option>
-                {industries.map((industry) => (
-                  <option key={industry} value={industry}>
-                    {industry}
-                  </option>
-                ))}
-              </select>
-              {errors.industry && (
-                <p className="text-xs text-destructive">
-                  {errors.industry.message}
-                </p>
-              )}
+              <div className="space-y-2">
+                <Label htmlFor="targetAudience">
+                  Target Audience <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="targetAudience"
+                  placeholder="e.g., Young adults 18-35"
+                  {...register("targetAudience")}
+                  className={errors.targetAudience ? "border-destructive" : ""}
+                />
+                {errors.targetAudience && (
+                  <p className="text-xs text-destructive">
+                    {errors.targetAudience.message}
+                  </p>
+                )}
+              </div>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="targetAudience">
-                Target Audience <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="targetAudience"
-                placeholder="e.g., Young adults 18-35"
-                {...register("targetAudience")}
-                className={errors.targetAudience ? "border-destructive" : ""}
-              />
-              {errors.targetAudience && (
-                <p className="text-xs text-destructive">
-                  {errors.targetAudience.message}
-                </p>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
       )}
 
       <Card>
@@ -442,7 +474,7 @@ export function CampaignForm({
               )}
             </div>
           </div>
-{/* 
+          {/* 
           {showBudgetEstimate && (
             <div className="rounded-xl bg-muted/50 p-4 flex items-start gap-3">
               <Info className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
@@ -581,6 +613,19 @@ export function CampaignForm({
           ) : null}
         </CardContent>
       </Card>
+
+      {validationSummary.length > 0 && (
+        <div className="rounded-xl bg-destructive/10 border border-destructive/20 p-4">
+          <p className="text-sm font-medium text-destructive mb-1">
+            Please fix the following before submitting:
+          </p>
+          <ul className="text-sm text-destructive list-disc pl-5 space-y-0.5">
+            {validationSummary.map((message, i) => (
+              <li key={i}>{message}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="flex items-center justify-end gap-4">
         <Button type="button" variant="outline" asChild>

@@ -108,6 +108,12 @@ export default function SubmitCampaignPage() {
       formData.append("campaignId", data.campaignId);
       formData.append("extractedViewCount", String(data.extractedViewCount));
       formData.append("screenshot", selectedFile!);
+      if (validationResult?.isFlagged) {
+        formData.append("isFlagged", "true");
+        validationResult.flags.forEach((flag) =>
+          formData.append("flagReasons", flag),
+        );
+      }
 
       const token = localStorage.getItem("auth-storage");
       const authData = token ? JSON.parse(token) : null;
@@ -278,7 +284,7 @@ export default function SubmitCampaignPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" asChild>
           <Link href={`/influencer/campaigns/${campaignId}`}>
@@ -307,267 +313,271 @@ export default function SubmitCampaignPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Campaign Requirements</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <p className="text-muted-foreground">Target Views</p>
-              <p className="font-semibold">
-                {c.targetViewRange?.min?.toLocaleString()} -{" "}
-                {c.targetViewRange?.max?.toLocaleString()}
-              </p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Payment Rate</p>
-              {c.paymentTiers && c.paymentTiers.length > 0 ? (
-                <div className="space-y-1 max-h-24 overflow-y-auto">
-                  {c.paymentTiers.map((tier, index) => (
-                    <p
-                      key={index}
-                      className="font-semibold text-emerald-600 text-xs"
-                    >
-                      {tier.lowerLimit.toLocaleString()} -{" "}
-                      {tier.upperLimit
-                        ? `${tier.upperLimit.toLocaleString()} views`
-                        : "+ views"}
-                      : GH₵{tier.amount.toFixed(2)}
-                    </p>
-                  ))}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Campaign Requirements</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Target Views</p>
+                  <p className="font-semibold">
+                    {c.targetViewRange?.min?.toLocaleString()} -{" "}
+                    {c.targetViewRange?.max?.toLocaleString()}
+                  </p>
                 </div>
-              ) : (
-                <p className="font-semibold text-emerald-600">
-                  GH₵{c.ratePerView?.toFixed(2) || "0.00"} per view
+                <div>
+                  <p className="text-muted-foreground">Payment Rate</p>
+                  {c.paymentTiers && c.paymentTiers.length > 0 ? (
+                    <div className="space-y-1 max-h-24 overflow-y-auto">
+                      {c.paymentTiers.map((tier, index) => (
+                        <p
+                          key={index}
+                          className="font-semibold text-emerald-600 text-xs"
+                        >
+                          {tier.lowerLimit.toLocaleString()} -{" "}
+                          {tier.upperLimit
+                            ? `${tier.upperLimit.toLocaleString()} views`
+                            : "+ views"}
+                          : GH₵{tier.amount.toFixed(2)}
+                        </p>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="font-semibold text-emerald-600">
+                      GH₵{c.ratePerView?.toFixed(2) || "0.00"} per view
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-sm">Deadline</p>
+                <p className="font-semibold">
+                  {new Date(c.endDate).toLocaleDateString()}
                 </p>
-              )}
-            </div>
-          </div>
-          <div>
-            <p className="text-muted-foreground text-sm">Deadline</p>
-            <p className="font-semibold">
-              {new Date(c.endDate).toLocaleDateString()}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+              </div>
+            </CardContent>
+          </Card>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Platform Selection</CardTitle>
-            <CardDescription>
-              Select the platform where you posted this campaign
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <Label htmlFor="platform">Platform</Label>
-              <Select
-                value={platform}
-                onValueChange={(value) => setPlatform(value as Platform)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select platform" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="instagram">Instagram</SelectItem>
-                  <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                  <SelectItem value="facebook">Facebook</SelectItem>
-                  <SelectItem value="tiktok">TikTok</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Platform Selection</CardTitle>
+              <CardDescription>
+                Select the platform where you posted this campaign
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <Label htmlFor="platform">Platform</Label>
+                <Select
+                  value={platform}
+                  onValueChange={(value) => setPlatform(value as Platform)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select platform" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="instagram">Instagram</SelectItem>
+                    <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                    <SelectItem value="facebook">Facebook</SelectItem>
+                    <SelectItem value="tiktok">TikTok</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Screenshot Upload</CardTitle>
-            <CardDescription>
-              Upload a screenshot showing your view count. We'll automatically
-              extract the view count using OCR.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {!selectedFile ? (
-              <div
-                className="border-2 border-dashed border-border/60 rounded-xl p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
-                onClick={() =>
-                  document.getElementById("screenshot-upload")?.click()
-                }
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  const file = e.dataTransfer.files[0];
-                  if (file) handleFileSelect(file);
-                }}
-              >
-                <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-sm font-medium mb-1">
-                  Click to upload or drag and drop
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Images (PNG, JPG, GIF) up to 10MB
-                </p>
-                <input
-                  id="screenshot-upload"
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Screenshot Upload</CardTitle>
+              <CardDescription>
+                Upload a screenshot showing your view count. We'll automatically
+                extract the view count using OCR.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {!selectedFile ? (
+                <div
+                  className="border-2 border-dashed border-border/60 rounded-xl p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
+                  onClick={() =>
+                    document.getElementById("screenshot-upload")?.click()
+                  }
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const file = e.dataTransfer.files[0];
                     if (file) handleFileSelect(file);
                   }}
-                />
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="relative  rounded-lg overflow-hidden bg-muted">
-                  {isProcessing && (
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
-                      <div className="text-center text-white">
-                        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-                        <p className="text-sm">Processing image...</p>
+                >
+                  <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-sm font-medium mb-1">
+                    Click to upload or drag and drop
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Images (PNG, JPG, GIF) up to 10MB
+                  </p>
+                  <input
+                    id="screenshot-upload"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleFileSelect(file);
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="relative  rounded-lg overflow-hidden bg-muted">
+                    {isProcessing && (
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
+                        <div className="text-center text-white">
+                          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+                          <p className="text-sm">Processing image...</p>
+                        </div>
+                      </div>
+                    )}
+                    <Image
+                      src={previewUrl || ""}
+                      alt="Screenshot preview"
+                      className="w-full h-full object-cover"
+                      width={100}
+                      height={100}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium truncate">
+                        {selectedFile.name}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+                      </span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={removeFile}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {validationResult?.isFlagged && (
+                    <div className="rounded-lg bg-yellow-500/10 border border-yellow-500/20 p-3 flex items-start gap-2">
+                      <AlertTriangle className="h-4 w-4 text-yellow-600 shrink-0 mt-0.5" />
+                      <div className="text-sm">
+                        <p className="font-medium text-yellow-700">
+                          Image Flagged
+                        </p>
+                        <ul className="text-yellow-600 text-xs mt-1 space-y-1">
+                          {validationResult.flags.map((flag, i) => (
+                            <li key={i}>• {flag}</li>
+                          ))}
+                        </ul>
                       </div>
                     </div>
                   )}
-                  <Image
-                    src={previewUrl || ""}
-                    alt="Screenshot preview"
-                    className="w-full h-full object-cover"
-                    width={100}
-                    height={100}
-                  />
                 </div>
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium truncate">
-                      {selectedFile.name}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
-                    </span>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={removeFile}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-                {validationResult?.isFlagged && (
-                  <div className="rounded-lg bg-yellow-500/10 border border-yellow-500/20 p-3 flex items-start gap-2">
-                    <AlertTriangle className="h-4 w-4 text-yellow-600 shrink-0 mt-0.5" />
-                    <div className="text-sm">
-                      <p className="font-medium text-yellow-700">
-                        Image Flagged
-                      </p>
-                      <ul className="text-yellow-600 text-xs mt-1 space-y-1">
-                        {validationResult.flags.map((flag, i) => (
-                          <li key={i}>• {flag}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>View Count</CardTitle>
+              <CardDescription>
+                {isProcessing
+                  ? "Extracting view count from screenshot..."
+                  : "Auto-extracted from your screenshot. You can edit if needed."}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="extractedViewCount">
+                  View Count <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="extractedViewCount"
+                  type="number"
+                  placeholder="View count will be auto-extracted"
+                  disabled={isProcessing}
+                  {...register("extractedViewCount", { valueAsNumber: true })}
+                  className={
+                    errors.extractedViewCount ? "border-destructive" : ""
+                  }
+                />
+                {errors.extractedViewCount && (
+                  <p className="text-xs text-destructive">
+                    {errors.extractedViewCount.message}
+                  </p>
+                )}
+                {!isProcessing && selectedFile && (
+                  <p className="text-xs text-muted-foreground">
+                    💡 Tip: The view count was automatically extracted using
+                    OCR. Please verify it matches your screenshot.
+                  </p>
                 )}
               </div>
-            )}
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>View Count</CardTitle>
-            <CardDescription>
-              {isProcessing
-                ? "Extracting view count from screenshot..."
-                : "Auto-extracted from your screenshot. You can edit if needed."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="extractedViewCount">
-                View Count <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="extractedViewCount"
-                type="number"
-                placeholder="View count will be auto-extracted"
-                disabled={isProcessing}
-                {...register("extractedViewCount", { valueAsNumber: true })}
-                className={
-                  errors.extractedViewCount ? "border-destructive" : ""
-                }
-              />
-              {errors.extractedViewCount && (
-                <p className="text-xs text-destructive">
-                  {errors.extractedViewCount.message}
-                </p>
-              )}
-              {!isProcessing && selectedFile && (
-                <p className="text-xs text-muted-foreground">
-                  💡 Tip: The view count was automatically extracted using OCR.
-                  Please verify it matches your screenshot.
-                </p>
-              )}
-            </div>
-
-            <div className="rounded-xl bg-yellow-500/10 border border-yellow-500/20 p-4 flex items-start gap-3">
-              <AlertCircle className="h-5 w-5 text-yellow-600 shrink-0 mt-0.5" />
-              <div className="text-sm">
-                <p className="font-medium text-yellow-700">Important</p>
-                <p className="text-yellow-600">
-                  Make sure the view count matches what's shown in your
-                  screenshot. False submissions may result in account
-                  suspension.
-                </p>
+              <div className="rounded-xl bg-yellow-500/10 border border-yellow-500/20 p-4 flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-yellow-600 shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium text-yellow-700">Important</p>
+                  <p className="text-yellow-600">
+                    Make sure the view count matches what's shown in your
+                    screenshot. False submissions may result in account
+                    suspension.
+                  </p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        <input type="hidden" {...register("campaignId")} value={campaignId} />
+          <input type="hidden" {...register("campaignId")} value={campaignId} />
 
-        <div className="flex items-center justify-end gap-4 pt-4">
-          <Button type="button" variant="outline" asChild>
-            <Link href={`/influencer/campaigns/${campaignId}`}>Cancel</Link>
-          </Button>
-          <Button
-            type="submit"
-            disabled={submitMutation.isPending || isProcessing}
-          >
-            {submitMutation.isPending || isProcessing ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Upload className="h-4 w-4 mr-2" />
-            )}
-            {isProcessing
-              ? "Processing..."
-              : submitMutation.isPending
-                ? "Submitting..."
-                : "Submit for Review"}
-          </Button>
-        </div>
-
-        {submitMutation.isError && (
-          <div className="rounded-xl bg-destructive/10 border border-destructive/20 p-4 text-center">
-            <p className="text-sm text-destructive">
-              {submitMutation.error instanceof Error
-                ? submitMutation.error.message
-                : "Failed to submit. Please check your details and try again."}
-            </p>
+          <div className="flex items-center justify-end gap-4 pt-4">
+            <Button type="button" variant="outline" asChild>
+              <Link href={`/influencer/campaigns/${campaignId}`}>Cancel</Link>
+            </Button>
+            <Button
+              type="submit"
+              disabled={submitMutation.isPending || isProcessing}
+            >
+              {submitMutation.isPending || isProcessing ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Upload className="h-4 w-4 mr-2" />
+              )}
+              {isProcessing
+                ? "Processing..."
+                : submitMutation.isPending
+                  ? "Submitting..."
+                  : "Submit for Review"}
+            </Button>
           </div>
-        )}
-      </form>
+
+          {submitMutation.isError && (
+            <div className="rounded-xl bg-destructive/10 border border-destructive/20 p-4 text-center">
+              <p className="text-sm text-destructive">
+                {submitMutation.error instanceof Error
+                  ? submitMutation.error.message
+                  : "Failed to submit. Please check your details and try again."}
+              </p>
+            </div>
+          )}
+        </form>
+      </div>
     </div>
   );
 }

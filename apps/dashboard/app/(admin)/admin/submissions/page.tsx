@@ -52,6 +52,7 @@ import {
   Loader2,
   RotateCcw,
   AlertTriangle,
+  Flag,
   FolderInput,
 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -78,6 +79,8 @@ type Submission = {
   isDuplicate?: boolean;
   submissionCount?: number;
   duplicateSubmissionIds?: string[];
+  isFlagged?: boolean;
+  flagReasons?: string[];
 };
 
 interface SubmissionListItemProps {
@@ -157,11 +160,25 @@ function SubmissionListItem({
                   Duplicate
                 </Badge>
               )}
+              {submission.isFlagged && (
+                <Badge
+                  variant="outline"
+                  className="text-yellow-600 border-yellow-200"
+                >
+                  <Flag className="h-3 w-3 mr-1" />
+                  Flagged
+                </Badge>
+              )}
             </div>
           </div>
           {submission.isDuplicate && (
             <p className="text-xs text-orange-600 mt-1">
               {submission.submissionCount || 1} submissions total
+            </p>
+          )}
+          {submission.isFlagged && !!submission.flagReasons?.length && (
+            <p className="text-xs text-yellow-600 mt-1">
+              {submission.flagReasons.join(" • ")}
             </p>
           )}
           <p className="text-xs text-muted-foreground mt-1">
